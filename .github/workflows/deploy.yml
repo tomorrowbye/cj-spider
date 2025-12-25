@@ -176,6 +176,7 @@ jobs:
           username: ${{ secrets.DEPLOY_SSH_USERNAME }}
           password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           script: |
+            docker login ${{ secrets.DOCKER_ALI_REGISTRY }} -u ${{ secrets.DOCKER_ALI_USERNAME }} -p ${{ secrets.DOCKER_ALI_PASSWORD }}
             cd /home/wk/wakaja/
             docker compose -f ./docker-compose.yml pull cj-spider
             docker compose -f ./docker-compose.yml up cj-spider -d --force-recreate
