@@ -64,7 +64,7 @@ jobs:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           port: ${{ secrets.DEPLOY_SSH_PORT }}
           username: ${{ secrets.DEPLOY_SSH_USERNAME }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_SSH_PASSWORD }}
           script: |
             cd /home/wk/wakaja/
             docker compose -f ./docker-compose.yml pull cj-spider
