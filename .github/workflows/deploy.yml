@@ -19,6 +19,10 @@ on:
           - minor # 次版本   x.1.x -> x.2.0
           - major # 主版本   1.x.x -> 2.0.0
 
+# 赋予工作流写入权限
+permissions:
+  contents: write
+
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_ALI_REGISTRY }}/tomorrowbye/cj-spider
 
