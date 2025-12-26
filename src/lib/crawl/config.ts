@@ -2,19 +2,19 @@
 
 export const CRAWL_CONFIG = {
   // 请求间隔 (毫秒)
-  LIST_PAGE_DELAY: 1000, // 列表页间隔，从 2000 减少到 1000
-  DETAIL_PAGE_DELAY: 500, // 详情页间隔，从 1500 减少到 500
+  LIST_PAGE_DELAY: 800, // 列表页间隔，从 1000 减少到 800ms
+  DETAIL_PAGE_DELAY: 300, // 详情页间隔，从 500 减少到 300ms
 
   // 并发控制
-  CONCURRENCY: 5, // 同时爬取的详情页数量
-  BATCH_SIZE: 20, // 每批处理的文章数，从 10 增加到 20
+  CONCURRENCY: 8, // 同时爬取的详情页数量，从 5 提升到 8
+  BATCH_SIZE: 30, // 每批处理的文章数，从 20 增加到 30
 
   // 限制
-  MAX_PAGES_PER_TASK: 100, // 单次任务最大页数，从 50 增加到 100
+  MAX_PAGES_PER_TASK: 100, // 单次任务最大页数
 
   // 重试
   MAX_RETRIES: 3,
-  RETRY_DELAY: 3000, // 重试延迟，从 5000 减少到 3000
+  RETRY_DELAY: 2000, // 重试延迟，从 3000 减少到 2000ms
 
   // 存储
   SAVE_RAW_HTML: false,
