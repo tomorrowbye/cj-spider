@@ -185,20 +185,21 @@ export async function getNewsStats(): Promise<{
   const supabase = getSupabaseClient();
 
   // 使用并发请求获取各个状态的统计
+  // 注意：使用 count: "exact" 和 head: true 来只获取计数，不获取数据
   const [totalResult, pendingResult, crawledResult, failedResult] =
     await Promise.all([
-      supabase.from("news").select("id", { count: "exact", head: true }),
+      supabase.from("news").select("*", { count: "exact", head: true }),
       supabase
         .from("news")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("status", "pending"),
       supabase
         .from("news")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("status", "crawled"),
       supabase
         .from("news")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("status", "failed"),
     ]);
 
