@@ -610,7 +610,7 @@ export default function CrawlPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">阶段1: 列表页爬取</span>
-                    <span>
+                    <span className="text-muted-foreground">
                       {currentTask.currentPage} / {currentTask.totalPages} 页 (
                       {Math.round(
                         (currentTask.currentPage / currentTask.totalPages) *
@@ -623,7 +623,7 @@ export default function CrawlPage() {
                     value={
                       (currentTask.currentPage / currentTask.totalPages) * 100
                     }
-                    className="h-2"
+                    className={`h-2 ${currentTask.phase === "list" ? "" : "opacity-50"}`}
                   />
                   <div className="text-xs text-muted-foreground">
                     发现 {currentTask.totalNews} 篇文章
@@ -634,7 +634,7 @@ export default function CrawlPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">阶段2: 详情页爬取</span>
-                    <span>
+                    <span className="text-muted-foreground">
                       {currentTask.crawledNews + currentTask.failedNews} /{" "}
                       {currentTask.totalNews} 篇 ({getDetailProgress()}%)
                     </span>
