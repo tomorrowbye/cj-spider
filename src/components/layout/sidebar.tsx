@@ -97,16 +97,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <Link
         href={item.href}
         className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-          "hover:bg-accent hover:text-accent-foreground",
+          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-300 border",
+          "hover:bg-accent/80 hover:text-accent-foreground",
           active
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground",
-          collapsed && "justify-center px-2"
+            ? "bg-primary/10 text-primary border-primary/20"
+            : "text-muted-foreground border-transparent",
+          collapsed && "justify-center px-2",
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        {!collapsed && <span>{item.label}</span>}
+        <span
+          className={cn(
+            "transition-all duration-300 whitespace-nowrap",
+            collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100",
+          )}
+        >
+          {item.label}
+        </span>
       </Link>
     );
 
@@ -129,18 +136,21 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <aside
         className={cn(
           "fixed left-0 top-14 bottom-0 z-40 flex flex-col border-r bg-background transition-all duration-300",
-          collapsed ? "w-14" : "w-56"
+          collapsed ? "w-14" : "w-56",
         )}
       >
         {/* 导航菜单 */}
         <div className="flex-1 overflow-y-auto py-4 px-2">
           {/* 主导航 */}
           <div className="space-y-1">
-            {!collapsed && (
-              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                导航
-              </div>
-            )}
+            <div
+              className={cn(
+                "px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-300 overflow-hidden",
+                collapsed ? "h-0 opacity-0" : "h-auto opacity-100",
+              )}
+            >
+              导航
+            </div>
             {navItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
@@ -152,11 +162,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {user?.role === "admin" && (
             <>
               <div className="space-y-1">
-                {!collapsed && (
-                  <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    管理
-                  </div>
-                )}
+                <div
+                  className={cn(
+                    "px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-300 overflow-hidden",
+                    collapsed ? "h-0 opacity-0" : "h-auto opacity-100",
+                  )}
+                >
+                  管理
+                </div>
                 {adminItems.map((item) => (
                   <NavLink key={item.href} item={item} />
                 ))}
@@ -167,11 +180,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
           {/* 工具 */}
           <div className="space-y-1">
-            {!collapsed && (
-              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                工具
-              </div>
-            )}
+            <div
+              className={cn(
+                "px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-300 overflow-hidden",
+                collapsed ? "h-0 opacity-0" : "h-auto opacity-100",
+              )}
+            >
+              工具
+            </div>
             {toolItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
@@ -186,7 +202,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             onClick={onToggle}
             className={cn(
               "w-full justify-center",
-              !collapsed && "justify-start"
+              !collapsed && "justify-start",
             )}
           >
             {collapsed ? (

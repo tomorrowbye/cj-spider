@@ -74,7 +74,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* 主内容区 */}
       <main
         className={cn(
-          "pt-14 min-h-screen transition-all duration-300",
+          "pt-14 min-h-screen transition-all duration-300 relative",
           sidebarCollapsed ? "pl-14" : "pl-56",
         )}
       >

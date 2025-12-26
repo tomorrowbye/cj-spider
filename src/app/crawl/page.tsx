@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  formatDateTime as formatDateTimeUtil,
+  formatDurationFromDates,
+  formatDuration,
+} from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +45,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { History, Download, Clock, Zap } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import {
+  History,
+  Download,
+  Clock,
+  Zap,
+  Newspaper,
+  XCircle,
+} from "lucide-react";
 
 interface CrawlProgress {
   sessionId: string;
@@ -373,26 +386,13 @@ export default function CrawlPage() {
     }
   };
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("zh-CN");
-  };
-
-  const formatDuration = (start: string, end: string | null) => {
-    if (!start) return "-";
-    const startTime = new Date(start).getTime();
-    const endTime = end ? new Date(end).getTime() : Date.now();
-    const minutes = Math.round(((endTime - startTime) / 60000) * 10) / 10;
-    return `${minutes} 分钟`;
-  };
+  const formatDate = formatDateTimeUtil;
+  const formatDurationDisplay = formatDurationFromDates;
 
   const formatEstimatedTime = (minutes: number) => {
     if (minutes <= 0) return "-";
-    if (minutes < 1) return "< 1 分钟";
-    if (minutes < 60) return `约 ${Math.ceil(minutes)} 分钟`;
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.ceil(minutes % 60);
-    return `约 ${hours} 小时 ${mins} 分钟`;
+    const formatted = formatDuration(minutes);
+    return formatted === "-" ? "-" : `约 ${formatted}`;
   };
 
   // 计算详情爬取进度
@@ -405,43 +405,83 @@ export default function CrawlPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">爬取任务</h1>
+        <h1 className="text-2xl font-semibold">爬取任务</h1>
         <p className="text-muted-foreground">管理新闻爬取任务和查看历史记录</p>
       </div>
 
       {/* 统计卡片 */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-sm text-muted-foreground">总文章数</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-yellow-600">
-                {stats.pending}
+      {stats ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="border-l-4 border-l-blue-400">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    总文章数
+                  </p>
+                  <div className="text-xl font-semibold">{stats.total}</div>
+                </div>
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 rounded-md flex items-center justify-center">
+                  <Newspaper className="w-5 h-5 text-blue-600" />
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">待爬取</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-green-600">
-                {stats.crawled}
+          <Card className="border-l-4 border-l-amber-400">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">待爬取</p>
+                  <div className="text-xl font-semibold">{stats.pending}</div>
+                </div>
+                <div className="w-10 h-10 bg-amber-50 dark:bg-amber-950 rounded-md flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">已完成</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-red-600">
-                {stats.failed}
+          <Card className="border-l-4 border-l-emerald-400">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">已完成</p>
+                  <div className="text-xl font-semibold">{stats.crawled}</div>
+                </div>
+                <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950 rounded-md flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-emerald-600" />
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">失败</p>
             </CardContent>
           </Card>
+          <Card className="border-l-4 border-l-rose-400">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">失败</p>
+                  <div className="text-xl font-semibold">{stats.failed}</div>
+                </div>
+                <div className="w-10 h-10 bg-rose-50 dark:bg-rose-950 rounded-md flex items-center justify-center">
+                  <XCircle className="w-5 h-5 text-rose-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <Skeleton className="h-3 w-16 mb-2" />
+                    <Skeleton className="h-6 w-12" />
+                  </div>
+                  <Skeleton className="w-10 h-10 rounded-md" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -462,69 +502,74 @@ export default function CrawlPage() {
               <CardTitle>创建爬取任务</CardTitle>
               <CardDescription>设置爬取的页码范围和选项</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startPage">起始页码</Label>
-                  <Input
-                    id="startPage"
-                    type="number"
-                    min={1}
-                    value={startPage}
-                    onChange={(e) =>
-                      setStartPage(parseInt(e.target.value) || 1)
+            <CardContent>
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startPage">起始页码</Label>
+                    <Input
+                      id="startPage"
+                      type="number"
+                      min={1}
+                      value={startPage}
+                      onChange={(e) =>
+                        setStartPage(parseInt(e.target.value) || 1)
+                      }
+                      disabled={loading || currentTask?.status === "running"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endPage">结束页码</Label>
+                    <Input
+                      id="endPage"
+                      type="number"
+                      min={startPage}
+                      value={endPage}
+                      onChange={(e) =>
+                        setEndPage(parseInt(e.target.value) || startPage)
+                      }
+                      disabled={loading || currentTask?.status === "running"}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 py-1">
+                  <Checkbox
+                    id="skipExisting"
+                    checked={skipExisting}
+                    onCheckedChange={(checked) =>
+                      setSkipExisting(checked as boolean)
                     }
                     disabled={loading || currentTask?.status === "running"}
                   />
+                  <Label
+                    htmlFor="skipExisting"
+                    className="cursor-pointer text-sm"
+                  >
+                    跳过已爬取的文章
+                  </Label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endPage">结束页码</Label>
-                  <Input
-                    id="endPage"
-                    type="number"
-                    min={startPage}
-                    value={endPage}
-                    onChange={(e) =>
-                      setEndPage(parseInt(e.target.value) || startPage)
-                    }
-                    disabled={loading || currentTask?.status === "running"}
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="skipExisting"
-                  checked={skipExisting}
-                  onCheckedChange={(checked) =>
-                    setSkipExisting(checked as boolean)
-                  }
-                  disabled={loading || currentTask?.status === "running"}
-                />
-                <Label htmlFor="skipExisting" className="cursor-pointer">
-                  跳过已爬取的文章
-                </Label>
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleStart}
-                  disabled={loading || currentTask?.status === "running"}
-                >
-                  {loading ? "启动中..." : "开始爬取"}
-                </Button>
-
-                {stats && stats.failed > 0 && (
-                  <Button variant="outline" onClick={handleRetry}>
-                    重试失败 ({stats.failed})
-                  </Button>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
                 )}
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    onClick={handleStart}
+                    disabled={loading || currentTask?.status === "running"}
+                  >
+                    {loading ? "启动中..." : "开始爬取"}
+                  </Button>
+
+                  {stats && stats.failed > 0 && (
+                    <Button variant="outline" onClick={handleRetry}>
+                      重试失败 ({stats.failed})
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -745,7 +790,10 @@ export default function CrawlPage() {
                           {formatDate(item.started_at)}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {formatDuration(item.started_at, item.finished_at)}
+                          {formatDurationDisplay(
+                            item.started_at,
+                            item.finished_at,
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -754,35 +802,18 @@ export default function CrawlPage() {
               </Table>
 
               {/* 分页 */}
-              {historyTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    第 {historyPage} / {historyTotalPages} 页
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                      disabled={historyPage === 1}
-                    >
-                      上一页
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setHistoryPage((p) =>
-                          Math.min(historyTotalPages, p + 1),
-                        )
-                      }
-                      disabled={historyPage === historyTotalPages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <div className="mt-4">
+                <Pagination
+                  currentPage={historyPage}
+                  totalPages={historyTotalPages}
+                  pageSize={10}
+                  total={historyTotal}
+                  onPageChange={setHistoryPage}
+                  showPageSizeSelector={false}
+                  showQuickJumper={true}
+                  showTotal={true}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

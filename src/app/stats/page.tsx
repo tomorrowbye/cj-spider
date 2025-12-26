@@ -65,17 +65,27 @@ interface ContentData {
   topTags: { tag: string; count: number }[];
 }
 
-const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff7300",
-  "#00C49F",
+// 多彩配色方案 - 主题色 + 丰富的色彩搭配
+const CHART_COLORS = {
+  primary: "#4f46e5", // Indigo-600 (主题色)
+  secondary: "#06b6d4", // Cyan-500 (青色)
+  tertiary: "#8b5cf6", // Violet-500 (紫色)
+  quaternary: "#10b981", // Emerald-500 (绿色)
+  quinary: "#f59e0b", // Amber-500 (琥珀色)
+};
+
+// 饼图和条形图使用的多彩渐变色系
+const PIE_COLORS = [
+  "#4f46e5", // Indigo-600 (靛蓝)
+  "#06b6d4", // Cyan-500 (青色)
+  "#8b5cf6", // Violet-500 (紫色)
+  "#10b981", // Emerald-500 (绿色)
+  "#f59e0b", // Amber-500 (琥珀色)
+  "#ec4899", // Pink-500 (粉色)
+  "#14b8a6", // Teal-500 (青绿)
+  "#f97316", // Orange-500 (橙色)
+  "#6366f1", // Indigo-500 (靛蓝浅)
+  "#0ea5e9", // Sky-500 (天蓝)
 ];
 
 export default function StatsPage() {
@@ -130,6 +140,23 @@ export default function StatsPage() {
     return dateStr.slice(5); // MM-DD
   };
 
+  // 自定义 Tooltip 样式
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="text-sm font-medium text-foreground mb-1">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: <span className="font-semibold">{entry.value}</span>
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-background p-8">
@@ -165,9 +192,11 @@ export default function StatsPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* 标题栏 */}
       <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">数据统计</h1>
-          <p className="text-muted-foreground">查看爬取数据分析和趋势</p>
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-semibold">数据统计</h1>
+          <p className="text-muted-foreground text-sm text-muted-foreground">
+            查看爬取数据分析和趋势
+          </p>
         </div>
         <Button
           variant="outline"
@@ -191,7 +220,7 @@ export default function StatsPage() {
                 <FileText className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">总文章数</span>
               </div>
-              <div className="text-3xl font-bold mt-2">{overview.total}</div>
+              <div className="text-2xl font-semibold mt-2">{overview.total}</div>
             </CardContent>
           </Card>
           <Card>
@@ -200,7 +229,7 @@ export default function StatsPage() {
                 <CheckCircle className="w-5 h-5 text-green-500" />
                 <span className="text-sm text-muted-foreground">已爬取</span>
               </div>
-              <div className="text-3xl font-bold mt-2 text-green-600">
+              <div className="text-2xl font-semibold mt-2 text-green-600">
                 {overview.crawled}
               </div>
             </CardContent>
@@ -211,7 +240,7 @@ export default function StatsPage() {
                 <Clock className="w-5 h-5 text-yellow-500" />
                 <span className="text-sm text-muted-foreground">待爬取</span>
               </div>
-              <div className="text-3xl font-bold mt-2 text-yellow-600">
+              <div className="text-2xl font-semibold mt-2 text-yellow-600">
                 {overview.pending}
               </div>
             </CardContent>
@@ -222,7 +251,7 @@ export default function StatsPage() {
                 <XCircle className="w-5 h-5 text-red-500" />
                 <span className="text-sm text-muted-foreground">爬取失败</span>
               </div>
-              <div className="text-3xl font-bold mt-2 text-red-600">
+              <div className="text-2xl font-semibold mt-2 text-red-600">
                 {overview.failed}
               </div>
             </CardContent>
@@ -233,7 +262,7 @@ export default function StatsPage() {
                 <CalendarDays className="w-5 h-5 text-blue-500" />
                 <span className="text-sm text-muted-foreground">今日新增</span>
               </div>
-              <div className="text-3xl font-bold mt-2 text-blue-600">
+              <div className="text-2xl font-semibold mt-2 text-blue-600">
                 {overview.todayCount}
               </div>
             </CardContent>
@@ -244,7 +273,7 @@ export default function StatsPage() {
                 <CalendarRange className="w-5 h-5 text-purple-500" />
                 <span className="text-sm text-muted-foreground">本周新增</span>
               </div>
-              <div className="text-3xl font-bold mt-2 text-purple-600">
+              <div className="text-2xl font-semibold mt-2 text-purple-600">
                 {overview.weekCount}
               </div>
             </CardContent>
@@ -284,24 +313,24 @@ export default function StatsPage() {
                   <XAxis
                     dataKey="date"
                     tickFormatter={formatDate}
-                    className="text-xs"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
                   />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
-                    labelFormatter={(label) => `日期: ${label}`}
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
                   />
+                  <Tooltip content={<CustomTooltip />} />
                   <Line
                     type="monotone"
                     dataKey="count"
                     name="爬取数量"
-                    stroke="hsl(var(--chart-1))"
+                    stroke={CHART_COLORS.primary}
                     strokeWidth={2}
-                    dot={{ fill: "hsl(var(--chart-1))" }}
+                    dot={{ fill: CHART_COLORS.primary, r: 4 }}
+                    activeDot={{ r: 6 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -334,11 +363,13 @@ export default function StatsPage() {
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="count"
+                      animationBegin={0}
+                      animationDuration={800}
                     >
                       {distribution.regions.slice(0, 8).map((_, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
+                          fill={PIE_COLORS[index % PIE_COLORS.length]}
                         />
                       ))}
                     </Pie>
@@ -367,27 +398,28 @@ export default function StatsPage() {
                   >
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      className="stroke-muted"
+                      stroke="hsl(var(--border))"
+                      opacity={0.3}
                     />
-                    <XAxis type="number" className="text-xs" />
+                    <XAxis
+                      type="number"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                    />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      className="text-xs"
+                      stroke="hsl(var(--muted-foreground))"
                       width={75}
-                      tick={{ fontSize: 11 }}
+                      fontSize={11}
+                      tickLine={false}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
+                    <Tooltip content={<CustomTooltip />} />
                     <Bar
                       dataKey="count"
                       name="文章数"
-                      fill="hsl(var(--chart-2))"
+                      fill={CHART_COLORS.secondary}
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>
@@ -434,7 +466,7 @@ export default function StatsPage() {
                     <Bar
                       dataKey="count"
                       name="文章数"
-                      fill="hsl(var(--chart-3))"
+                      fill={CHART_COLORS.tertiary}
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>
@@ -457,21 +489,25 @@ export default function StatsPage() {
                   <BarChart data={content.lengthDistribution}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      className="stroke-muted"
+                      stroke="hsl(var(--border))"
+                      opacity={0.3}
                     />
-                    <XAxis dataKey="range" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                    <XAxis
+                      dataKey="range"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
                     />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
                     <Bar
                       dataKey="count"
                       name="文章数"
-                      fill="hsl(var(--chart-4))"
+                      fill={CHART_COLORS.quinary}
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -512,8 +548,8 @@ export default function StatsPage() {
                           `${name} ${((percent || 0) * 100).toFixed(0)}%`
                         }
                       >
-                        <Cell fill="hsl(var(--chart-1))" />
-                        <Cell fill="hsl(var(--chart-5))" />
+                        <Cell fill={CHART_COLORS.primary} />
+                        <Cell fill={CHART_COLORS.quaternary} />
                       </Pie>
                       <Tooltip />
                       <Legend />
@@ -532,8 +568,8 @@ export default function StatsPage() {
                         key={item.tag}
                         className="px-3 py-1 rounded-full text-sm"
                         style={{
-                          backgroundColor: `${COLORS[index % COLORS.length]}20`,
-                          color: COLORS[index % COLORS.length],
+                          backgroundColor: `${PIE_COLORS[index % PIE_COLORS.length]}20`,
+                          color: PIE_COLORS[index % PIE_COLORS.length],
                         }}
                       >
                         {item.tag} ({item.count})

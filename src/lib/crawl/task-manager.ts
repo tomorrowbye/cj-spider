@@ -87,7 +87,7 @@ export async function startCrawlTask(
     sessionId,
     status: "running",
     phase: "list",
-    currentPage: startPage,
+    currentPage: 0,
     totalPages,
     totalNews: 0,
     pendingNews: 0,
@@ -154,9 +154,9 @@ async function executeCrawlTask(
         console.log(`[${sessionId}] 第 ${page} 页插入 ${inserted} 篇文章`);
       }
 
-      // 更新进度
+      // 更新进度 - 使用相对页码而非绝对页码
       await updateCrawlSession(sessionId, {
-        currentPage: page,
+        currentPage: page - startPage + 1,
         totalNews,
         pendingNews: totalNews,
       });

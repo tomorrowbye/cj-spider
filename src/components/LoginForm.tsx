@@ -67,16 +67,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">
-          安徽财经网登录
-        </CardTitle>
+    <Card className="w-full">
+      <CardHeader className="space-y-2 pb-6">
+        <CardTitle className="text-xl text-center">安徽财经网登录</CardTitle>
         <CardDescription className="text-center">
           请输入您的账号信息
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">用户名</Label>

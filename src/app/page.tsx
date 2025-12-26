@@ -71,11 +71,15 @@ export default function Home() {
   ];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* 欢迎区域 */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold">欢迎回来，{user?.username}</h1>
-        <p className="text-muted-foreground">CJ-Spider 新闻爬虫管理系统</p>
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold">
+          欢迎回来，{user?.username}
+        </h1>
+        <p className="text-muted-foreground text-sm text-muted-foreground">
+          CJ-Spider 新闻爬虫管理系统
+        </p>
       </div>
 
       {/* 状态卡片 */}

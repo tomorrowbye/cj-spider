@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
+import {
+  formatDateTime as formatDateTimeUtil,
+  formatDate as formatDateUtil,
+} from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Pagination } from "@/components/ui/pagination";
 import {
   FileText,
   History,
@@ -95,7 +100,13 @@ export default function NewsListPage() {
   const [loading, setLoading] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("newsListPageSize");
+      return saved ? parseInt(saved, 10) : 10;
+    }
+    return 10;
+  });
   const [totalPages, setTotalPages] = useState(0);
 
   // 搜索条件状态（用于输入）
@@ -167,6 +178,13 @@ export default function NewsListPage() {
       })
       .catch(console.error);
   }, []);
+
+  // 保存 pageSize 到 localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("newsListPageSize", pageSize.toString());
+    }
+  }, [pageSize]);
 
   const fetchNews = useCallback(async () => {
     setLoading(true);
@@ -343,15 +361,8 @@ export default function NewsListPage() {
     );
   };
 
-  const formatDateTime = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("zh-CN");
-  };
-
-  const formatDateShort = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("zh-CN");
-  };
+  const formatDateTime = formatDateTimeUtil;
+  const formatDateShort = formatDateUtil;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -397,7 +408,7 @@ export default function NewsListPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">新闻列表</h1>
+        <h1 className="text-2xl font-semibold">新闻列表</h1>
         <p className="text-muted-foreground">查看和导出已爬取的新闻数据</p>
       </div>
 
@@ -629,33 +640,17 @@ export default function NewsListPage() {
               </Table>
 
               {/* 分页 */}
-              {totalPages > 1 && (
-                <div className="px-4 py-3 border-t flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    第 {page} / {totalPages} 页
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
-                      上一页
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={page === totalPages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                showPageSizeSelector={true}
+                showQuickJumper={true}
+                showTotal={true}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -755,35 +750,18 @@ export default function NewsListPage() {
               </Table>
 
               {/* 分页 */}
-              {historyTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    第 {historyPage} / {historyTotalPages} 页
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                      disabled={historyPage === 1}
-                    >
-                      上一页
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setHistoryPage((p) =>
-                          Math.min(historyTotalPages, p + 1),
-                        )
-                      }
-                      disabled={historyPage === historyTotalPages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <div className="mt-4">
+                <Pagination
+                  currentPage={historyPage}
+                  totalPages={historyTotalPages}
+                  pageSize={10}
+                  total={historyTotal}
+                  onPageChange={setHistoryPage}
+                  showPageSizeSelector={false}
+                  showQuickJumper={true}
+                  showTotal={true}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

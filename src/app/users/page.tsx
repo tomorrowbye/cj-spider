@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { formatDateTime } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,10 +252,7 @@ export default function UsersPage() {
     }
   };
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("zh-CN");
-  };
+  const formatDate = formatDateTime;
 
   const getRoleBadge = (role: string) => {
     if (role === "admin") {
@@ -296,7 +294,7 @@ export default function UsersPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">账号管理</h1>
+        <h1 className="text-2xl font-semibold">账号管理</h1>
         <p className="text-muted-foreground">管理系统用户账号和权限</p>
       </div>
 

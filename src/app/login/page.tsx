@@ -11,17 +11,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-lg mx-auto space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">爬虫登录</h1>
+        <h1 className="text-2xl font-semibold">爬虫登录</h1>
         <p className="text-muted-foreground">
           登录安徽财经网账号以进行数据爬取
         </p>
       </div>
 
-      <div className="flex justify-center">
-        <LoginForm onLoginSuccess={handleLoginSuccess} />
-      </div>
+      <LoginForm onLoginSuccess={handleLoginSuccess} />
     </div>
   );
 }

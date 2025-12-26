@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseClient } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const days = parseInt(searchParams.get('days') || '30');
+    const days = parseInt(searchParams.get("days") || "30");
 
     const supabase = getSupabaseClient();
 
@@ -14,10 +14,10 @@ export async function GET(request: NextRequest) {
     startDate.setHours(0, 0, 0, 0);
 
     const { data: newsData, error } = await supabase
-      .from('news')
-      .select('created_at, publish_time')
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { ascending: true });
+      .from("news")
+      .select("created_at, publish_time")
+      .gte("created_at", startDate.toISOString())
+      .order("created_at", { ascending: true });
 
     if (error) {
       throw error;
@@ -31,14 +31,20 @@ export async function GET(request: NextRequest) {
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setDate(date.getDate() - (days - 1 - i));
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toISOString().split("T")[0];
       crawlTrendMap.set(dateStr, 0);
     }
 
-    // 统计爬取趋势
+    // 统计爬取趋势 (将 UTC 时间转换为东8区日期)
     newsData?.forEach((item) => {
       if (item.created_at) {
-        const dateStr = new Date(item.created_at).toISOString().split('T')[0];
+        // 数据库返回的是 UTC 时间（无 Z 后缀），需要当作 UTC 处理
+        const createdDate = new Date(item.created_at + "Z");
+        // 转换为东8区时间
+        const beijingDate = new Date(
+          createdDate.getTime() + 8 * 60 * 60 * 1000,
+        );
+        const dateStr = beijingDate.toISOString().split("T")[0];
         if (crawlTrendMap.has(dateStr)) {
           crawlTrendMap.set(dateStr, (crawlTrendMap.get(dateStr) || 0) + 1);
         }
@@ -67,10 +73,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('获取趋势数据失败:', error);
+    console.error("获取趋势数据失败:", error);
     return NextResponse.json(
-      { success: false, error: '获取趋势数据失败' },
-      { status: 500 }
+      { success: false, error: "获取趋势数据失败" },
+      { status: 500 },
     );
   }
 }
