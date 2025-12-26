@@ -440,3 +440,46 @@ export async function retryFailedArticles(
 
   return { count: data?.length || 0 };
 }
+
+/**
+ * 获取当前正在运行或暂停的任务
+ */
+export async function getCurrentRunningTask(): Promise<CrawlProgress | null> {
+  const { getSupabaseClient } = await import("../supabase");
+  const supabase = getSupabaseClient();
+
+  // 查找状态为 running 或 paused 的最新任务
+  const { data, error } = await supabase
+    .from("crawl_sessions")
+    .select("*")
+    .in("status", ["running", "paused"])
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  // 计算预估剩余时间
+  let estimatedTime = 0;
+  if (data.phase === "detail" && data.avg_speed > 0 && data.pending_news > 0) {
+    estimatedTime = Math.ceil(data.pending_news / data.avg_speed);
+  }
+
+  return {
+    sessionId: data.id,
+    status: data.status,
+    phase: data.phase || "list",
+    currentPage: data.current_page,
+    totalPages: data.total_pages,
+    totalNews: data.total_news,
+    pendingNews: data.pending_news || 0,
+    crawledNews: data.crawled_news,
+    failedNews: data.failed_news || 0,
+    avgSpeed: data.avg_speed || 0,
+    estimatedTime,
+    startedAt: new Date(data.started_at),
+    updatedAt: new Date(),
+  };
+}

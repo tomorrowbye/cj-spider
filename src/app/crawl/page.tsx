@@ -197,6 +197,25 @@ export default function CrawlPage() {
       .catch(console.error);
   }, []);
 
+  // 页面加载时检查是否有正在运行的任务
+  useEffect(() => {
+    const checkRunningTask = async () => {
+      try {
+        const response = await fetch("/api/crawl/current");
+        const data = await response.json();
+        if (data.success && data.data) {
+          setCurrentTask(data.data);
+          if (data.data.status === "running") {
+            fetchTaskStatus(data.data.sessionId);
+          }
+        }
+      } catch (err) {
+        console.error("检查运行任务失败:", err);
+      }
+    };
+    checkRunningTask();
+  }, [fetchTaskStatus]);
+
   const handleStart = async () => {
     setError("");
     setLoading(true);
