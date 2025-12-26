@@ -184,27 +184,35 @@ export async function getNewsStats(): Promise<{
 }> {
   const supabase = getSupabaseClient();
 
-  const { data, error } = await supabase.from("news").select("status");
+  // 使用并发请求获取各个状态的统计
+  const [totalResult, pendingResult, crawledResult, failedResult] =
+    await Promise.all([
+      supabase.from("news").select("id", { count: "exact", head: true }),
+      supabase
+        .from("news")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabase
+        .from("news")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "crawled"),
+      supabase
+        .from("news")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "failed"),
+    ]);
 
-  if (error) {
-    console.error("获取新闻统计失败:", error);
-    throw error;
+  if (totalResult.error) {
+    console.error("获取总数统计失败:", totalResult.error);
+    throw totalResult.error;
   }
 
-  const stats = {
-    total: data?.length || 0,
-    pending: 0,
-    crawled: 0,
-    failed: 0,
+  return {
+    total: totalResult.count || 0,
+    pending: pendingResult.count || 0,
+    crawled: crawledResult.count || 0,
+    failed: failedResult.count || 0,
   };
-
-  data?.forEach((item) => {
-    if (item.status === "pending") stats.pending++;
-    else if (item.status === "crawled") stats.crawled++;
-    else if (item.status === "failed") stats.failed++;
-  });
-
-  return stats;
 }
 
 // ==================== 爬取会话操作 ====================
