@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   formatDateTime as formatDateTimeUtil,
   formatDurationFromDates,
@@ -125,6 +125,9 @@ export default function CrawlPage() {
   ]);
   const [exporting, setExporting] = useState(false);
 
+  // 用于存储轮询定时器的 ref
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchStats = useCallback(async () => {
     try {
       const response = await fetch("/api/crawl/stats");
@@ -144,7 +147,15 @@ export default function CrawlPage() {
       if (data.success) {
         setCurrentTask(data.data);
         if (data.data.status === "running") {
-          setTimeout(() => fetchTaskStatus(sessionId), 1500);
+          // 清除之前的定时器
+          if (pollingTimerRef.current) {
+            clearTimeout(pollingTimerRef.current);
+          }
+          // 设置新的定时器
+          pollingTimerRef.current = setTimeout(
+            () => fetchTaskStatus(sessionId),
+            1500,
+          );
         }
       }
     } catch (err) {
@@ -214,6 +225,14 @@ export default function CrawlPage() {
       }
     };
     checkRunningTask();
+
+    // 组件卸载时清理定时器
+    return () => {
+      if (pollingTimerRef.current) {
+        clearTimeout(pollingTimerRef.current);
+        pollingTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
 
