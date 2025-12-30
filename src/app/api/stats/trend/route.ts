@@ -8,52 +8,37 @@ export async function GET(request: NextRequest) {
 
     const supabase = getSupabaseClient();
 
-    // 获取最近 N 天的爬取趋势
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
+    // 使用数据库函数进行聚合统计，避免 1000 条限制
+    const [crawlResult, publishResult] = await Promise.all([
+      supabase.rpc("get_crawl_trend", { days_count: days }),
+      supabase.rpc("get_publish_trend", { days_count: days }),
+    ]);
 
-    const { data: newsData, error } = await supabase
-      .from("news")
-      .select("created_at, publish_time")
-      .gte("created_at", startDate.toISOString())
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      throw error;
+    if (crawlResult.error) {
+      console.error("获取爬取趋势失败:", crawlResult.error);
+      throw crawlResult.error;
     }
 
-    // 按天聚合爬取数据
-    const crawlTrendMap = new Map<string, number>();
-    const publishTrendMap = new Map<string, number>();
+    if (publishResult.error) {
+      console.error("获取发布趋势失败:", publishResult.error);
+      throw publishResult.error;
+    }
 
-    // 初始化日期范围
+    // 初始化日期范围，确保所有日期都有数据点
+    const crawlTrendMap = new Map<string, number>();
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setDate(date.getDate() - (days - 1 - i));
-      const dateStr = date.toISOString().split("T")[0];
+      // 使用东8区日期
+      const beijingDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+      const dateStr = beijingDate.toISOString().split("T")[0];
       crawlTrendMap.set(dateStr, 0);
     }
 
-    // 统计爬取趋势 (将 UTC 时间转换为东8区日期)
-    newsData?.forEach((item) => {
-      if (item.created_at) {
-        // 数据库返回的是 UTC 时间（无 Z 后缀），需要当作 UTC 处理
-        const createdDate = new Date(item.created_at + "Z");
-        // 转换为东8区时间
-        const beijingDate = new Date(
-          createdDate.getTime() + 8 * 60 * 60 * 1000,
-        );
-        const dateStr = beijingDate.toISOString().split("T")[0];
-        if (crawlTrendMap.has(dateStr)) {
-          crawlTrendMap.set(dateStr, (crawlTrendMap.get(dateStr) || 0) + 1);
-        }
-      }
-
-      // 统计发布时间分布（按月）
-      if (item.publish_time) {
-        const monthStr = new Date(item.publish_time).toISOString().slice(0, 7);
-        publishTrendMap.set(monthStr, (publishTrendMap.get(monthStr) || 0) + 1);
+    // 填充数据库返回的统计数据
+    crawlResult.data?.forEach((item: { date: string; count: number }) => {
+      if (crawlTrendMap.has(item.date)) {
+        crawlTrendMap.set(item.date, item.count);
       }
     });
 
@@ -61,8 +46,10 @@ export async function GET(request: NextRequest) {
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const publishTrend = Array.from(publishTrendMap.entries())
-      .map(([month, count]) => ({ month, count }))
+    const publishTrend = (
+      (publishResult.data as { month: string; count: number }[]) || []
+    )
+      .map((item) => ({ month: item.month, count: item.count }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
     return NextResponse.json({
