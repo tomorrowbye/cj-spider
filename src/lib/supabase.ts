@@ -336,13 +336,15 @@ function parseDateTime(dateStr: string): string | null {
   }
 
   // 尝试解析中文格式: 2025-12-24 19:49:52
+  // 新闻网站显示的时间是北京时间(东8区),需要明确指定时区
   const match = dateStr.match(
     /(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/,
   );
   if (match) {
     const [, year, month, day, hour, minute, second] = match;
+    // 添加 +08:00 时区标识,明确表示这是北京时间
     return new Date(
-      `${year}-${month}-${day}T${hour}:${minute}:${second}`,
+      `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`,
     ).toISOString();
   }
 
