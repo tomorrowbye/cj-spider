@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:parse-datetime": "node src/lib/__tests__/parse-datetime.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
