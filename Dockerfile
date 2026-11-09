@@ -7,7 +7,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # 安装 pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 
 # 复制依赖文件
 COPY package.json pnpm-lock.yaml* ./
@@ -20,7 +20,7 @@ FROM base AS builder
 WORKDIR /app
 
 # 安装 pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 
 # 构建参数
 ARG NEXT_PUBLIC_SUPABASE_URL
