@@ -324,28 +324,45 @@ export async function getCrawlSession(sessionId: string) {
 // ==================== 工具函数 ====================
 
 /**
- * 解析日期时间字符串
+ * 解析日期时间字符串为 UTC ISO。
+ * CJ 源站时间为北京时间(UTC+8)；无时区的字符串一律按 +08:00 解析。
+ * 仅当字符串已带 Z 或 ±offset 时才直接交给 Date。
+ * Exported for unit tests.
  */
-function parseDateTime(dateStr: string): string | null {
+export function parseDateTime(dateStr: string): string | null {
   if (!dateStr) return null;
 
-  // 尝试直接解析
-  const date = new Date(dateStr);
-  if (!isNaN(date.getTime())) {
-    return date.toISOString();
+  const trimmed = dateStr.trim();
+
+  // Already has timezone: Z or ±HH:MM / ±HHMM
+  const hasTimezone =
+    /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+
+  if (hasTimezone) {
+    const date = new Date(trimmed);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+    return null;
   }
 
-  // 尝试解析中文格式: 2025-12-24 19:49:52
-  // 新闻网站显示的时间是北京时间(东8区),需要明确指定时区
-  const match = dateStr.match(
-    /(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/,
+  // CJ / common formats without offset — treat as Asia/Shanghai
+  // e.g. "2025-12-24 19:49:52" or "2025-12-24T19:49:52"
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/,
   );
   if (match) {
     const [, year, month, day, hour, minute, second] = match;
-    // 添加 +08:00 时区标识,明确表示这是北京时间
     return new Date(
       `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`,
     ).toISOString();
+  }
+
+  // Date-only: YYYY-MM-DD → Beijing midnight
+  const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return new Date(`${year}-${month}-${day}T00:00:00+08:00`).toISOString();
   }
 
   return null;
