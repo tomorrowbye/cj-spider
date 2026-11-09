@@ -41,7 +41,7 @@ async function importer() {
 }
 const config = {url: 'https://fixture.invalid', serviceKey: 'fixture-key', pageSize: 5};
 const fixture = (): Record<string, Row[]> => ({
-  news: [1, 7, 22, 35, 90].map(id => ({id, source_id: `n${id}`, title: '完整新闻', tags: ['中文', 'a,b'], images: [{url: 'image', metadata: {width: 42}}], qr_codes: [{value: 'qr'}], contact_info: {phones: ['123']}, related_links: [{url:'link'}], raw_html: '<p>raw</p>', publish_time: '2026-04-10 21:46:24', created_at: '2026-04-10', updated_at: '2026-04-10T22:00:00+08:00'})),
+  news: [1, 7, 22, 35, 90].map(id => ({id, source_id: `n${id}`, title: '完整新闻', tags: ['中文', 'a,b'], images: [{url: 'image', metadata: {width: 42}}], qr_codes: [{value: 'qr'}], contact_info: {phones: ['123']}, related_links: [{url:'link'}], raw_html: '<p>raw</p>', publish_time: '2026-04-10T21:46:24.123456', created_at: '2026-04-10', updated_at: '2026-04-10T22:00:00+08:00'})),
   site_users: [{id: 48, username: 'existing', password_hash: '$2b$fixture-unchanged', created_at: '2026-04-10 21:46:24', updated_at: '2026-04-11 10:00:00'}],
   crawl_sessions: [{id: 30, session_name:'session', started_at:'2026-04-10 21:46:24'}],
   export_history: [{id: 40, total_count:5, columns:['title','images'], file_name:'旧文件.xlsx', start_date:'2026-04-10'}],
@@ -54,6 +54,10 @@ test('keyset pagination survives server page caps and checks exact counts', asyn
   const mock = source(fixture());
   const result = await readSource({...config, fetcher:mock.fetcher, warn:()=>{}});
   assert.equal(result.news.length, 5);
+  assert.equal(result.news[0].publish_time, '2026-04-10T21:46:24.123456Z');
+  assert.equal(result.news[0].created_at, '2026-04-10T00:00:00Z');
+  assert.equal(result.site_users[0].created_at, '2026-04-10T21:46:24Z');
+  assert.equal(result.news[0].updated_at, '2026-04-10T22:00:00+08:00');
   const pages = mock.requests.filter(u=>u.pathname.endsWith('/news') && u.searchParams.has('limit'));
   assert.deepEqual(pages.map(u=>u.searchParams.get('id')), [null, 'gt.7', 'gt.35', 'gt.90']);
 });
@@ -88,13 +92,13 @@ test('real PostgreSQL import reruns preserve timestamps, hashes, JSON, identitie
       assert.equal(Number(result.rows[0].n), data[name].length);
     }
     const article = await db.selectFrom('news').selectAll().where('id','=',1).executeTakeFirstOrThrow();
-    assert.equal(new Date(article.publish_time!).toISOString(), '2026-04-10T13:46:24.000Z');
-    assert.equal(new Date(article.created_at).toISOString(), '2026-04-09T16:00:00.000Z');
+    assert.equal(new Date(article.publish_time!).toISOString(), '2026-04-10T21:46:24.123Z');
+    assert.equal(new Date(article.created_at).toISOString(), '2026-04-10T00:00:00.000Z');
     assert.equal(new Date(article.updated_at).toISOString(), '2026-04-10T14:00:00.000Z');
     for (const field of ['tags','images','qr_codes','contact_info','related_links','raw_html'] as const) assert.deepEqual(article[field], data.news[0][field]);
     const user = await db.selectFrom('site_users').selectAll().executeTakeFirstOrThrow();
     assert.equal(user.password_hash, data.site_users[0].password_hash);
-    assert.equal(new Date(user.updated_at).toISOString(), '2026-04-11T02:00:00.000Z');
+    assert.equal(new Date(user.updated_at).toISOString(), '2026-04-11T10:00:00.000Z');
     const identity = await db.selectFrom('auth_identities').selectAll().executeTakeFirstOrThrow();
     assert.equal(Number(identity.user_id),48); assert.equal(identity.provider_subject,'existing');
     const triggers = await sql<{tgenabled:string}>`select tgenabled from pg_trigger where tgname in ('news_updated_at','site_users_updated_at')`.execute(db);

@@ -13,6 +13,43 @@ export interface NewsItem {
   region:string|null; category:string|null; publish_time:string|null; status:string; created_at:string;
 }
 export interface NewsListResult {data:NewsItem[];total:number;page:number;pageSize:number;totalPages:number}
+export class InvalidNewsListParams extends Error {}
+
+export function parseNewsListParams(searchParams: URLSearchParams): NewsSearchParams {
+  const positiveInteger = (key: string, fallback: number) => {
+    const raw = searchParams.get(key);
+    if (raw === null) return fallback;
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1) {
+      throw new InvalidNewsListParams(`Invalid ${key}`);
+    }
+    return value;
+  };
+  const page = positiveInteger('page', 1);
+  const pageSize = positiveInteger('pageSize', 20);
+  if (!Number.isSafeInteger((page - 1) * pageSize)) {
+    throw new InvalidNewsListParams('Invalid pagination offset');
+  }
+  const orderBy = searchParams.get('orderBy') ?? 'source_id';
+  try { sortColumn(orderBy); } catch {
+    throw new InvalidNewsListParams('Invalid news sort column');
+  }
+  const order = searchParams.get('order') ?? 'desc';
+  if (order !== 'asc' && order !== 'desc') throw new InvalidNewsListParams('Invalid news sort order');
+  return {
+    author: searchParams.get('author') || undefined,
+    region: searchParams.get('region') || undefined,
+    sourceName: searchParams.get('sourceName') || undefined,
+    category: searchParams.get('category') || undefined,
+    startDate: searchParams.get('startDate') || undefined,
+    endDate: searchParams.get('endDate') || undefined,
+    status: searchParams.get('status') || undefined,
+    keyword: searchParams.get('keyword') || undefined,
+    title: searchParams.get('title') || undefined,
+    page, pageSize, orderBy, order,
+  };
+}
+
 const columns = ['id','source_id','title','author','source_name','region','category','publish_time','status','created_at'] as const;
 function filteredQuery(params: NewsSearchParams, db: Kysely<Database>) {
   let query=db.selectFrom('news');
@@ -23,7 +60,17 @@ function filteredQuery(params: NewsSearchParams, db: Kysely<Database>) {
   if (params.category) query=query.where('category','=',params.category);
   if (params.status) query=query.where('status','=',params.status as 'pending'|'crawled'|'failed');
   if (params.startDate) query=query.where('publish_time','>=',parseDateTime(params.startDate) ?? params.startDate);
-  if (params.endDate) query=query.where('publish_time','<=',parseDateTime(params.endDate) ?? params.endDate);
+  if (params.endDate) {
+    const end = params.endDate.trim();
+    const parsed = parseDateTime(end);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(end) && parsed) {
+      const nextDay = new Date(parsed);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      query=query.where('publish_time','<',nextDay.toISOString());
+    } else {
+      query=query.where('publish_time','<=',parsed ?? params.endDate);
+    }
+  }
   if (params.keyword) query=query.where(eb=>eb.or([eb('title','ilike',`%${params.keyword}%`),eb('author','ilike',`%${params.keyword}%`)]));
   return query;
 }

@@ -53,10 +53,11 @@ function normalize(table: Table, row: Row): Row {
   return Object.fromEntries(Object.entries(row).map(([key, value]) => {
     if (dateColumns.has(key) && value !== null) {
       if (typeof value !== 'string') fail(`Invalid timestamp in ${table}`);
-      // Date-only and timezone-less wall clocks belong to Asia/Shanghai.
+      // Supabase stores timezone-less timestamps in UTC; crawler wall clocks
+      // are handled separately by article-repository.parseDateTime.
       let date = value.trim().replace(' ', 'T');
       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) date += 'T00:00:00';
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(date)) date += '+08:00';
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(date)) date += 'Z';
       if (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(date) || !Number.isFinite(Date.parse(date))) fail(`Invalid timestamp in ${table}`);
       return [key, date];
     }

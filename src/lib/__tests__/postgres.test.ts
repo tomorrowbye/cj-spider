@@ -62,6 +62,37 @@ test('PostgreSQL migration and repository preserve full articles, filtering, his
   } finally { await db.destroy(); }
 });
 
+test('date-only news ranges include the whole +08 day for lists and exports', async () => {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { Kysely, PGliteDialect, sql } = await import('kysely');
+  const { migrate } = await import('../../../db/migrate');
+  const news = await import('../news-service');
+  const db = new Kysely<import('../db').Database>({ dialect: new PGliteDialect({pglite: new PGlite()}) });
+  try {
+    await migrate(db);
+    const fixtures = [
+      ['previous', '2026-04-09T23:59:59.999+08:00'],
+      ['start', '2026-04-10T00:00:00+08:00'],
+      ['midday', '2026-04-10T12:00:00+08:00'],
+      ['final-ms', '2026-04-10T23:59:59.999+08:00'],
+      ['final-microsecond', '2026-04-10T23:59:59.999999+08:00'],
+      ['next-midnight', '2026-04-11T00:00:00+08:00'],
+    ];
+    for (const [source_id, timestamp] of fixtures) {
+      await db.insertInto('news').values({source_id, title:source_id, publish_time:sql<Date>`${timestamp}::timestamptz`}).execute();
+    }
+    const params = {startDate:'2026-04-10', endDate:'2026-04-10', orderBy:'publish_time', order:'asc' as const};
+    const expected = ['start', 'midday', 'final-ms', 'final-microsecond'];
+    const result = await news.getNewsList(params, db);
+    assert.equal(result.total, expected.length);
+    assert.deepEqual(result.data.map(row => row.source_id), expected);
+    assert.deepEqual((await news.getNewsForExport(params, db)).map(row => row.source_id), expected);
+    const explicitEnd = {...params, endDate:'2026-04-10T12:00:00+08:00'};
+    assert.deepEqual((await news.getNewsList(explicitEnd, db)).data.map(row => row.source_id), ['start', 'midday']);
+    assert.deepEqual((await news.getNewsForExport(explicitEnd, db)).map(row => row.source_id), ['start', 'midday']);
+  } finally { await db.destroy(); }
+});
+
 test('data module imports do not require a runtime DATABASE_URL', async () => {
   delete process.env.DATABASE_URL;
   assert.ok(existsSync('src/lib/db.ts'), 'lazy PostgreSQL module must exist');

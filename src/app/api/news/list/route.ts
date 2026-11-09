@@ -1,6 +1,6 @@
 import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
-import { getNewsList, getFilterOptions } from "@/lib/news-service";
+import { getNewsList, getFilterOptions, parseNewsListParams, InvalidNewsListParams } from "@/lib/news-service";
 
 export async function GET(request: NextRequest) {
   const authError = await requireSiteAuth();
@@ -8,22 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // 解析查询参数
-    const params = {
-      author: searchParams.get("author") || undefined,
-      region: searchParams.get("region") || undefined,
-      sourceName: searchParams.get("sourceName") || undefined,
-      category: searchParams.get("category") || undefined,
-      startDate: searchParams.get("startDate") || undefined,
-      endDate: searchParams.get("endDate") || undefined,
-      status: searchParams.get("status") || undefined,
-      keyword: searchParams.get("keyword") || undefined,
-      title: searchParams.get("title") || undefined,
-      page: parseInt(searchParams.get("page") || "1", 10),
-      pageSize: parseInt(searchParams.get("pageSize") || "20", 10),
-      orderBy: searchParams.get("orderBy") || "source_id",
-      order: (searchParams.get("order") || "desc") as "asc" | "desc",
-    };
+    const params = parseNewsListParams(searchParams);
 
     const result = await getNewsList(params);
 
@@ -32,6 +17,9 @@ export async function GET(request: NextRequest) {
       ...result,
     });
   } catch (error) {
+    if (error instanceof InvalidNewsListParams) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
     console.error("获取新闻列表失败:", error);
     return NextResponse.json(
       {
