@@ -1,9 +1,12 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getCrawlHistory } from '@/lib/article-repository';
 import * as XLSX from 'xlsx';
 
 // GET 返回可导出的列
 export async function GET() {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   const columns = [
     { key: 'id', label: 'ID' },
     { key: 'session_name', label: '任务名称' },
@@ -23,24 +26,13 @@ export async function GET() {
 
 // POST 执行导出
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { columns = ['id', 'session_name', 'status', 'started_at'], status } = body;
 
-    const supabase = getSupabaseClient();
-
-    // 构建查询
-    let query = supabase.from('crawl_sessions').select('*');
-
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
-    }
-
-    const { data, error } = await query.order('started_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
+    const { data } = await getCrawlHistory({status});
 
     if (!data || data.length === 0) {
       return NextResponse.json(
@@ -113,7 +105,7 @@ export async function POST(request: NextRequest) {
             }
             break;
           default:
-            row[label] = item[col] ?? '-';
+            row[label] = item[col as keyof typeof item] ?? '-';
         }
       });
 

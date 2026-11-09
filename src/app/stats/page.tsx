@@ -35,6 +35,7 @@ import {
   Pie,
   Cell,
   Legend,
+  type TooltipContentProps,
 } from "recharts";
 
 interface OverviewData {
@@ -141,12 +142,16 @@ export default function StatsPage() {
   };
 
   // 自定义 Tooltip 样式
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: Partial<TooltipContentProps<number, string>>) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium text-foreground mb-1">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: <span className="font-semibold">{entry.value}</span>
             </p>

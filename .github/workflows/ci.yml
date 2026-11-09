@@ -1,0 +1,33 @@
+name: Phase 1 checks
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - name: Build standalone container without credentials
+        run: docker build -t cj-spider:ci .
+      - name: Reject missing runtime configuration
+        run: |
+          set +e
+          timeout 20 docker run --rm cj-spider:ci > startup.log 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 1
+          grep -q 'JWT_SECRET is required' startup.log

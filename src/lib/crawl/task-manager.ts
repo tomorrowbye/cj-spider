@@ -12,7 +12,9 @@ import {
   getCrawlSession,
   getPendingArticles,
   getPendingArticlesCount,
-} from "../supabase";
+  resetFailedArticles,
+  getLatestCrawlSession,
+} from "../article-repository";
 
 // 任务状态存储 (内存中，生产环境可用 Redis)
 const taskStates = new Map<
@@ -424,40 +426,16 @@ export async function getCrawlTaskStatus(
 export async function retryFailedArticles(
   cookie: string,
 ): Promise<{ count: number }> {
-  const { getSupabaseClient } = await import("../supabase");
-  const supabase = getSupabaseClient();
-
-  // 将 failed 状态改为 pending
-  const { data, error } = await supabase
-    .from("news")
-    .update({ status: "pending", error_message: null })
-    .eq("status", "failed")
-    .select("id");
-
-  if (error) {
-    throw error;
-  }
-
-  return { count: data?.length || 0 };
+  void cookie;
+  return { count: await resetFailedArticles() };
 }
 
 /**
  * 获取当前正在运行或暂停的任务
  */
 export async function getCurrentRunningTask(): Promise<CrawlProgress | null> {
-  const { getSupabaseClient } = await import("../supabase");
-  const supabase = getSupabaseClient();
-
-  // 查找状态为 running 或 paused 的最新任务
-  const { data, error } = await supabase
-    .from("crawl_sessions")
-    .select("*")
-    .in("status", ["running", "paused"])
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error || !data) {
+  const data = await getLatestCrawlSession();
+  if (!data) {
     return null;
   }
 
@@ -468,7 +446,7 @@ export async function getCurrentRunningTask(): Promise<CrawlProgress | null> {
   }
 
   return {
-    sessionId: data.id,
+    sessionId: String(data.id),
     status: data.status,
     phase: data.phase || "list",
     currentPage: data.current_page,

@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { getNewsList, getFilterOptions } from "@/lib/news-service";
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
 
@@ -42,6 +45,8 @@ export async function GET(request: NextRequest) {
 
 // 获取筛选选项
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const body = await request.json();
 

@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextResponse } from 'next/server';
 import { getCurrentRunningTask } from '@/lib/crawl/task-manager';
 
 export async function GET() {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const currentTask = await getCurrentRunningTask();
 

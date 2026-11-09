@@ -1,9 +1,12 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { retryFailedArticles } from "@/lib/crawl/task-manager";
 import { checkLoginStatus } from "@/lib/cj-auth";
 import { getCjCookies } from "@/lib/auth-helper";
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     // 获取原站 cookie
     const cookie = getCjCookies(request);

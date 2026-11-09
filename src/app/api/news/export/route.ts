@@ -1,7 +1,8 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { getNewsForExport } from "@/lib/news-service";
-import { getSupabaseClient } from "@/lib/supabase";
+import { recordExport, parseDateTime } from "@/lib/article-repository";
 
 // 可导出的列定义
 const COLUMN_DEFINITIONS = {
@@ -17,6 +18,8 @@ const COLUMN_DEFINITIONS = {
 };
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const {
@@ -104,14 +107,13 @@ export async function POST(request: NextRequest) {
 
     // 记录导出历史
     try {
-      const supabase = getSupabaseClient();
-      await supabase.from("export_history").insert({
+      await recordExport({
         keyword: keyword || null,
         author: author || null,
         region: region || null,
         source_name: sourceName || null,
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: startDate ? parseDateTime(startDate) : null,
+        end_date: endDate ? parseDateTime(endDate) : null,
         total_count: data.length,
         columns: columns,
         file_name: filename,
@@ -144,6 +146,8 @@ export async function POST(request: NextRequest) {
 
 // 获取可导出的列
 export async function GET() {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   return NextResponse.json({
     success: true,
     columns: Object.entries(COLUMN_DEFINITIONS).map(([key, value]) => ({

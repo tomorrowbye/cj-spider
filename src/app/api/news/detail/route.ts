@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getArticle } from '@/lib/article-repository';
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -13,16 +16,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase
-      .from('news')
-      .select('*')
-      .eq('source_id', id)
-      .single();
-
-    if (error) {
-      console.error('查询新闻详情失败:', error);
+    const data = await getArticle(id);
+    if (!data) {
       return NextResponse.json(
         { success: false, error: '新闻不存在' },
         { status: 404 }
