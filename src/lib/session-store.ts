@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 // 简单的内存会话存储（生产环境应使用 Redis）
 // 用于存储验证码请求时获取的原站 Cookie
 
@@ -15,7 +17,7 @@ const SESSION_TTL = 5 * 60 * 1000;
  * 生成会话 ID
  */
 export function generateSessionId(): string {
-  return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  return `sess_${randomBytes(32).toString('hex')}`;
 }
 
 /**
@@ -60,6 +62,20 @@ export function deleteSession(sessionId: string): void {
 /**
  * 清理过期会话
  */
+export function createMcpCaptchaSession(userId: number, cookie: string): string {
+  const id = generateSessionId();
+  saveSession(`mcp:${userId}:${id}`, cookie);
+  return id;
+}
+
+/** MCP captcha cookies cannot be read by the browser flow; consume even failed attempts. */
+export function consumeMcpCaptchaSession(userId: number, id: string): string | null {
+  const key = `mcp:${userId}:${id}`;
+  const cookie = getSession(key);
+  deleteSession(key);
+  return cookie;
+}
+
 function cleanExpiredSessions(): void {
   const now = Date.now();
   for (const [id, session] of sessionStore.entries()) {

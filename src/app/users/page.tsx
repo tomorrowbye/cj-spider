@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/date-utils";
+import { ApiKeyManager } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -422,6 +423,8 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <ApiKeyManager all />
 
       {/* 新建用户弹窗 */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
