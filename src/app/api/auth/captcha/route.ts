@@ -1,8 +1,11 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextResponse } from "next/server";
 import { getCaptcha } from "@/lib/cj-auth";
 import { generateSessionId, saveSession } from "@/lib/session-store";
 
 export async function GET() {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { imageBuffer, cookies } = await getCaptcha();
 

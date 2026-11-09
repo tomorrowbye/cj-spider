@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrawlTaskStatus } from '@/lib/crawl/task-manager';
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');

@@ -1,261 +1,97 @@
-import { getSupabaseClient } from "./supabase";
+import 'server-only';
+import type { Kysely } from 'kysely';
+import { getDb, serializeRow, type Database } from './db';
+import { parseDateTime } from './article-repository';
 
 export interface NewsSearchParams {
-  // 精确搜索
-  author?: string;
-  region?: string;
-  sourceName?: string;
-  category?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-
-  // 模糊搜索
-  keyword?: string; // 标题和作者模糊搜索（兼容旧版）
-  title?: string; // 仅标题模糊搜索
-
-  // 分页
-  page?: number;
-  pageSize?: number;
-
-  // 排序
-  orderBy?: string;
-  order?: "asc" | "desc";
+  author?:string; region?:string; sourceName?:string; category?:string;
+  startDate?:string; endDate?:string; status?:string; keyword?:string; title?:string;
+  page?:number; pageSize?:number; orderBy?:string; order?:'asc'|'desc';
 }
-
 export interface NewsItem {
-  id: number;
-  source_id: string;
-  title: string;
-  author: string | null;
-  source_name: string | null;
-  region: string | null;
-  category: string | null;
-  publish_time: string | null;
-  status: string;
-  created_at: string;
+  id:number; source_id:string; title:string; author:string|null; source_name:string|null;
+  region:string|null; category:string|null; publish_time:string|null; status:string; created_at:string;
 }
+export interface NewsListResult {data:NewsItem[];total:number;page:number;pageSize:number;totalPages:number}
+export class InvalidNewsListParams extends Error {}
 
-export interface NewsListResult {
-  data: NewsItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
-/**
- * 查询新闻列表
- */
-export async function getNewsList(
-  params: NewsSearchParams,
-): Promise<NewsListResult> {
-  const supabase = getSupabaseClient();
-
-  const {
-    author,
-    region,
-    sourceName,
-    category,
-    startDate,
-    endDate,
-    status,
-    keyword,
-    title,
-    page = 1,
-    pageSize = 20,
-    orderBy = "source_id",
-    order = "desc",
-  } = params;
-
-  // 构建查询
-  let query = supabase
-    .from("news")
-    .select(
-      "id, source_id, title, author, source_name, region, category, publish_time, status, created_at",
-      { count: "exact" },
-    );
-
-  // 作者模糊搜索
-  if (author) {
-    query = query.ilike("author", `%${author}%`);
+export function parseNewsListParams(searchParams: URLSearchParams): NewsSearchParams {
+  const positiveInteger = (key: string, fallback: number) => {
+    const raw = searchParams.get(key);
+    if (raw === null) return fallback;
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1) {
+      throw new InvalidNewsListParams(`Invalid ${key}`);
+    }
+    return value;
+  };
+  const page = positiveInteger('page', 1);
+  const pageSize = positiveInteger('pageSize', 20);
+  if (!Number.isSafeInteger((page - 1) * pageSize)) {
+    throw new InvalidNewsListParams('Invalid pagination offset');
   }
-  // 精确过滤
-  if (region) {
-    query = query.eq("region", region);
+  const orderBy = searchParams.get('orderBy') ?? 'source_id';
+  try { sortColumn(orderBy); } catch {
+    throw new InvalidNewsListParams('Invalid news sort column');
   }
-  if (sourceName) {
-    query = query.eq("source_name", sourceName);
-  }
-  if (category) {
-    query = query.eq("category", category);
-  }
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  // 时间范围
-  if (startDate) {
-    query = query.gte("publish_time", startDate);
-  }
-  if (endDate) {
-    query = query.lte("publish_time", endDate);
-  }
-
-  // 仅标题搜索
-  if (title) {
-    query = query.ilike("title", `%${title}%`);
-  }
-
-  // 模糊搜索 (标题或作者) - 兼容旧版
-  if (keyword) {
-    query = query.or(`title.ilike.%${keyword}%,author.ilike.%${keyword}%`);
-  }
-
-  // 排序
-  query = query.order(orderBy, { ascending: order === "asc" });
-
-  // 分页
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  query = query.range(from, to);
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    console.error("查询新闻列表失败:", error);
-    throw error;
-  }
-
-  const total = count || 0;
-
+  const order = searchParams.get('order') ?? 'desc';
+  if (order !== 'asc' && order !== 'desc') throw new InvalidNewsListParams('Invalid news sort order');
   return {
-    data: data || [],
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize),
+    author: searchParams.get('author') || undefined,
+    region: searchParams.get('region') || undefined,
+    sourceName: searchParams.get('sourceName') || undefined,
+    category: searchParams.get('category') || undefined,
+    startDate: searchParams.get('startDate') || undefined,
+    endDate: searchParams.get('endDate') || undefined,
+    status: searchParams.get('status') || undefined,
+    keyword: searchParams.get('keyword') || undefined,
+    title: searchParams.get('title') || undefined,
+    page, pageSize, orderBy, order,
   };
 }
 
-/**
- * 获取所有符合条件的新闻 (用于导出)
- */
-export async function getNewsForExport(
-  params: Omit<NewsSearchParams, "page" | "pageSize">,
-): Promise<NewsItem[]> {
-  const supabase = getSupabaseClient();
-
-  const {
-    author,
-    region,
-    sourceName,
-    category,
-    startDate,
-    endDate,
-    status,
-    keyword,
-    title,
-    orderBy = "source_id",
-    order = "desc",
-  } = params;
-
-  // 构建查询
-  let query = supabase
-    .from("news")
-    .select(
-      "id, source_id, title, author, source_name, region, category, publish_time, status, created_at, content_text",
-    );
-
-  // 作者模糊搜索
-  if (author) {
-    query = query.ilike("author", `%${author}%`);
+const columns = ['id','source_id','title','author','source_name','region','category','publish_time','status','created_at'] as const;
+function filteredQuery(params: NewsSearchParams, db: Kysely<Database>) {
+  let query=db.selectFrom('news');
+  if (params.author) query=query.where('author','ilike',`%${params.author}%`);
+  if (params.title) query=query.where('title','ilike',`%${params.title}%`);
+  if (params.region) query=query.where('region','=',params.region);
+  if (params.sourceName) query=query.where('source_name','=',params.sourceName);
+  if (params.category) query=query.where('category','=',params.category);
+  if (params.status) query=query.where('status','=',params.status as 'pending'|'crawled'|'failed');
+  if (params.startDate) query=query.where('publish_time','>=',parseDateTime(params.startDate) ?? params.startDate);
+  if (params.endDate) {
+    const end = params.endDate.trim();
+    const parsed = parseDateTime(end);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(end) && parsed) {
+      const nextDay = new Date(parsed);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      query=query.where('publish_time','<',nextDay.toISOString());
+    } else {
+      query=query.where('publish_time','<=',parsed ?? params.endDate);
+    }
   }
-  // 精确过滤
-  if (region) {
-    query = query.eq("region", region);
-  }
-  if (sourceName) {
-    query = query.eq("source_name", sourceName);
-  }
-  if (category) {
-    query = query.eq("category", category);
-  }
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  // 时间范围
-  if (startDate) {
-    query = query.gte("publish_time", startDate);
-  }
-  if (endDate) {
-    query = query.lte("publish_time", endDate);
-  }
-
-  // 仅标题搜索
-  if (title) {
-    query = query.ilike("title", `%${title}%`);
-  }
-
-  // 模糊搜索 - 兼容旧版
-  if (keyword) {
-    query = query.or(`title.ilike.%${keyword}%,author.ilike.%${keyword}%`);
-  }
-
-  // 排序
-  query = query.order(orderBy, { ascending: order === "asc" });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("查询导出数据失败:", error);
-    throw error;
-  }
-
-  return data || [];
+  if (params.keyword) query=query.where(eb=>eb.or([eb('title','ilike',`%${params.keyword}%`),eb('author','ilike',`%${params.keyword}%`)]));
+  return query;
 }
-
-/**
- * 获取筛选选项 (去重的作者、地区、来源、分类列表)
- */
-export async function getFilterOptions(): Promise<{
-  authors: string[];
-  regions: string[];
-  sourceNames: string[];
-  categories: string[];
-}> {
-  const supabase = getSupabaseClient();
-
-  // 并行查询
-  const [authorsRes, regionsRes, sourceNamesRes, categoriesRes] =
-    await Promise.all([
-      supabase.from("news").select("author").not("author", "is", null),
-      supabase.from("news").select("region").not("region", "is", null),
-      supabase
-        .from("news")
-        .select("source_name")
-        .not("source_name", "is", null),
-      supabase.from("news").select("category").not("category", "is", null),
-    ]);
-
-  // 去重
-  const authors = [
-    ...new Set(authorsRes.data?.map((d) => d.author).filter(Boolean) || []),
-  ].sort();
-  const regions = [
-    ...new Set(regionsRes.data?.map((d) => d.region).filter(Boolean) || []),
-  ].sort();
-  const sourceNames = [
-    ...new Set(
-      sourceNamesRes.data?.map((d) => d.source_name).filter(Boolean) || [],
-    ),
-  ].sort();
-  const categories = [
-    ...new Set(
-      categoriesRes.data?.map((d) => d.category).filter(Boolean) || [],
-    ),
-  ].sort();
-
-  return { authors, regions, sourceNames, categories };
+function sortColumn(value = 'source_id'): keyof Database['news'] {
+  const allowed: (keyof Database['news'])[] = ['id','source_id','title','author','source_name','region','category','publish_time','status','created_at','updated_at','crawl_time','view_count','share_count'];
+  if (!allowed.includes(value as keyof Database['news'])) throw new Error('Invalid news sort column');
+  return value as keyof Database['news'];
+}
+export async function getNewsList(params: NewsSearchParams, db = getDb()): Promise<NewsListResult> {
+  const {page=1,pageSize=20}=params;
+  if (!Number.isInteger(page)||!Number.isInteger(pageSize)||page<1||pageSize<1) throw new Error('Invalid pagination');
+  const query=filteredQuery(params,db);
+  const {count}=await query.select(eb=>eb.fn.countAll().as('count')).executeTakeFirstOrThrow();
+  const data=await query.select(columns).orderBy(sortColumn(params.orderBy),params.order==='asc'?'asc':'desc').limit(pageSize).offset((page-1)*pageSize).execute();
+  return {data:serializeRow(data),total:Number(count),page,pageSize,totalPages:Math.ceil(Number(count)/pageSize)};
+}
+export async function getNewsForExport(params: Omit<NewsSearchParams,'page'|'pageSize'>, db = getDb()) {
+  return serializeRow(await filteredQuery(params,db).select([...columns,'content_text']).orderBy(sortColumn(params.orderBy),params.order==='asc'?'asc':'desc').execute());
+}
+export async function getFilterOptions(db = getDb()): Promise<{authors:string[];regions:string[];sourceNames:string[];categories:string[]}> {
+  const distinct = async (column:'author'|'region'|'source_name'|'category') => (await db.selectFrom('news').select(column).distinct().where(column,'is not',null).where(column,'!=','').execute()).map(r=>r[column]!).sort();
+  const [authors,regions,sourceNames,categories]=await Promise.all([distinct('author'),distinct('region'),distinct('source_name'),distinct('category')]);
+  return {authors,regions,sourceNames,categories};
 }

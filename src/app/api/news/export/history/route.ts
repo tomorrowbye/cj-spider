@@ -1,28 +1,17 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getExportHistory, deleteExportHistory } from '@/lib/article-repository';
 
 // 获取导出历史记录
 export async function GET(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
 
-    const supabase = getSupabaseClient();
-
-    // 分页查询
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await supabase
-      .from('export_history')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      throw error;
-    }
+    const { data, total: count } = await getExportHistory(page, pageSize);
 
     return NextResponse.json({
       success: true,
@@ -43,6 +32,8 @@ export async function GET(request: NextRequest) {
 
 // 删除导出历史记录
 export async function DELETE(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -54,16 +45,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseClient();
-
-    const { error } = await supabase
-      .from('export_history')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw error;
-    }
+    await deleteExportHistory(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

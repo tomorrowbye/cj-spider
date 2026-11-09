@@ -1,32 +1,6 @@
-/**
- * Lightweight parseDateTime checks (no test runner in package.json).
- * Run: node src/lib/__tests__/parse-datetime.test.mjs
- * Mirrors the logic in src/lib/supabase.ts — keep in sync when changing parseDateTime.
- */
-function parseDateTime(dateStr) {
-  if (!dateStr) return null;
-  const trimmed = dateStr.trim();
-  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
-  if (hasTimezone) {
-    const date = new Date(trimmed);
-    return isNaN(date.getTime()) ? null : date.toISOString();
-  }
-  const match = trimmed.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/,
-  );
-  if (match) {
-    const [, year, month, day, hour, minute, second] = match;
-    return new Date(
-      `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`,
-    ).toISOString();
-  }
-  const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateOnly) {
-    const [, year, month, day] = dateOnly;
-    return new Date(`${year}-${month}-${day}T00:00:00+08:00`).toISOString();
-  }
-  return null;
-}
+import { parseDateTime } from '../article-repository.ts';
+
+/** Run with pnpm test:parse-datetime. */
 
 function assertEq(actual, expected, label) {
   if (actual !== expected) {

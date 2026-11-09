@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
 import { pauseCrawlTask } from '@/lib/crawl/task-manager';
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { sessionId } = body;

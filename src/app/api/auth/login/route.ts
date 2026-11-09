@@ -1,8 +1,11 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { login } from "@/lib/cj-auth";
 import { getSession, deleteSession } from "@/lib/session-store";
 
 export async function POST(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { username, password, code } = body;

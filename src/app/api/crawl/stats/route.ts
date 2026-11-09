@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextResponse } from 'next/server';
-import { getNewsStats } from '@/lib/supabase';
+import { getNewsStats } from '@/lib/article-repository';
 
 export async function GET() {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     const stats = await getNewsStats();
 

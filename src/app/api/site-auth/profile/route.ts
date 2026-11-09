@@ -3,9 +3,8 @@ import {
   getCurrentUser,
   updateUserPassword,
   verifyPassword,
-  hashPassword,
 } from "@/lib/auth";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getDb } from "@/lib/db";
 
 /**
  * 更新个人密码
@@ -35,14 +34,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 验证当前密码
-    const supabase = getSupabaseClient();
-    const { data: userData, error: fetchError } = await supabase
-      .from("site_users")
+    const userData = await getDb()
+      .selectFrom("site_users")
       .select("password_hash")
-      .eq("id", user.id)
-      .single();
+      .where("id", "=", user.id)
+      .executeTakeFirst();
 
-    if (fetchError || !userData) {
+    if (!userData) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 });
     }
 

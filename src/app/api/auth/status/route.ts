@@ -1,7 +1,10 @@
+import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { checkLoginStatus } from "@/lib/cj-auth";
 
 export async function GET(request: NextRequest) {
+  const authError = await requireSiteAuth();
+  if (authError) return authError;
   try {
     // 从我们的 Cookie 中获取原站登录 Cookie
     const cjAuth = request.cookies.get("cj_auth")?.value;
