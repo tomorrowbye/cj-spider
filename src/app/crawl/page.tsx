@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { CrawlProgress as ControllerCrawlProgress } from "@/lib/crawl/types";
 import {
   formatDateTime as formatDateTimeUtil,
   formatDurationFromDates,
@@ -57,7 +58,7 @@ import {
 
 interface CrawlProgress {
   sessionId: string;
-  status: "running" | "paused" | "completed" | "failed";
+  status: ControllerCrawlProgress["status"];
   phase: "list" | "detail" | "completed";
   currentPage: number;
   totalPages: number;

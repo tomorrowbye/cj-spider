@@ -13,6 +13,9 @@ services:
       TZ: Asia/Shanghai
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the server PostgreSQL URL}
       JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET}
+      # MCP authenticates with per-user API Keys; only upstream login needs env.
+      CJ_USERNAME: ${CJ_USERNAME:-}
+      CJ_PASSWORD: ${CJ_PASSWORD:-}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s

@@ -169,7 +169,9 @@ export async function importSupabase(db: Kysely<Database>, options: ImportOption
     const schema = await sql<{table_name:string; column_name:string}>`select table_name, column_name from information_schema.columns where table_schema='public'`.execute(trx);
     for (const table of Object.keys(columns) as (keyof typeof columns)[]) {
       const actual = schema.rows.filter(r=>r.table_name===table).map(r=>r.column_name);
-      validateColumns(table, actual);
+      // Target-only MCP runtime fields are not legacy source columns.
+      const runtimeColumns = table === 'crawl_sessions' ? new Set('pause_reason start_page end_page next_page skip_existing idempotency_key recent_titles execution_id pending_execution updated_at'.split(' ')) : new Set<string>();
+      validateColumns(table, actual.filter(name => !runtimeColumns.has(name)));
       if (columns[table].split(' ').some(n=>!actual.includes(n))) fail(`Missing target column in ${table}`);
     }
     for (const table of tables) {

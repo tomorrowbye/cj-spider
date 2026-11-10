@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getCurrentUser,
   getUserList,
-  createUser,
+  createUserValidated,
   updateUserStatus,
   updateUserPassword,
   deleteUser,
@@ -62,30 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, password, role = "user" } = body;
-
-    if (!username || !password) {
-      return NextResponse.json(
-        { success: false, error: "用户名和密码不能为空" },
-        { status: 400 }
-      );
-    }
-
-    if (username.length < 3 || username.length > 50) {
-      return NextResponse.json(
-        { success: false, error: "用户名长度应在3-50个字符之间" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 4) {
-      return NextResponse.json(
-        { success: false, error: "密码长度至少4个字符" },
-        { status: 400 }
-      );
-    }
-
-    const result = await createUser(username, password, role);
+    const result = await createUserValidated(body);
 
     if (!result.success) {
       return NextResponse.json(

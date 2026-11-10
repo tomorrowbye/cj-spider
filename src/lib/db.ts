@@ -20,7 +20,11 @@ export interface CrawlSessionTable {
   current_page: Generated<number>; total_news: Generated<number>; crawled_news: Generated<number>;
   failed_news: Generated<number>; pending_news: Generated<number>; avg_speed: Generated<number>;
   phase: Generated<'list' | 'detail' | 'completed'>;
-  status: Generated<'running' | 'paused' | 'completed' | 'failed'>;
+  status: Generated<'running' | 'paused' | 'completed' | 'failed' | 'cancelled'>;
+  pause_reason: string | null; start_page: number | null; end_page: number | null; next_page: number | null;
+  skip_existing: Generated<boolean>; idempotency_key: string | null;
+  recent_titles: Generated<import('./crawl/types').RecentTitle[]>;
+  execution_id: string | null; pending_execution: Json; updated_at: DefaultTimestamp;
   started_at: DefaultTimestamp; finished_at: Timestamp | null;
 }
 export interface SiteUserTable {
@@ -33,6 +37,8 @@ export interface ExportHistoryTable {
   total_count: number; columns: string[]; file_name: string; created_at: DefaultTimestamp;
 }
 export interface Database {
+  api_keys: { id: Generated<number>; user_id: number; name: string; key_prefix: string; key_hash: string; created_at: DefaultTimestamp; last_used_at: Timestamp | null; expires_at: Timestamp | null; revoked_at: Timestamp | null };
+  mcp_audit_log: { id: Generated<number>; created_at: DefaultTimestamp; user_id: number | null; api_key_id: number | null; tool: string; args_redacted: Json; ok: boolean; error: string | null; duration_ms: number; task_id: number | null };
   news: NewsTable;
   crawl_sessions: CrawlSessionTable;
   site_users: SiteUserTable;

@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("登录参数:", { username, code, cjCookies });
 
     const result = await login({
       username,
@@ -46,7 +45,6 @@ export async function POST(request: NextRequest) {
       cookie: cjCookies,
     });
 
-    console.log("登录结果:", result);
 
     if (result.success && result.cookies) {
       const response = NextResponse.json({ success: true });
@@ -74,8 +72,8 @@ export async function POST(request: NextRequest) {
       { success: false, error: result.error || "登录失败" },
       { status: 401 },
     );
-  } catch (error) {
-    console.error("登录失败:", error);
+  } catch {
+    console.error("登录请求处理失败");
     return NextResponse.json(
       { success: false, error: "登录请求处理失败" },
       { status: 500 },

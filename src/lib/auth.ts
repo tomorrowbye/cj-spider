@@ -1,7 +1,8 @@
 import "server-only";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { getDb } from "@/lib/db";
+import { getDb, type Database } from "@/lib/db";
+import type { Kysely } from "kysely";
 import { generateToken } from "./jwt";
 import { resolveSession } from "./auth-session";
 export { generateToken, verifyToken } from "./jwt";
@@ -56,11 +57,20 @@ export async function loginUser(username: string, password: string): Promise<{ s
   return { success: true, user: siteUser, token: generateToken(siteUser) };
 }
 
-export async function createUser(username: string, password: string, role: "admin" | "user" = "user"): Promise<{ success: boolean; user?: SiteUser; error?: string }> {
+export async function createUserValidated(input: { username?: unknown; password?: unknown; role?: unknown }, db?: Kysely<Database>) {
+  const { username, password, role = "user" } = input;
+  if (typeof username !== "string" || typeof password !== "string" || !username || !password) return { success: false, error: "用户名和密码不能为空" };
+  if (username.length < 3 || username.length > 50) return { success: false, error: "用户名长度应在3-50个字符之间" };
+  if (password.length < 4) return { success: false, error: "密码长度至少4个字符" };
+  if (role !== "admin" && role !== "user") return { success: false, error: "角色无效" };
+  return createUser(username, password, role, db);
+}
+
+export async function createUser(username: string, password: string, role: "admin" | "user" = "user", db?: Kysely<Database>): Promise<{ success: boolean; user?: SiteUser; error?: string }> {
   if (role !== "admin" && role !== "user") return { success: false, error: "角色无效" };
   const passwordHash = await hashPassword(password);
   try {
-    const user = await getDb().transaction().execute(async (trx) => {
+    const user = await (db ?? getDb()).transaction().execute(async (trx) => {
       const row = await trx.insertInto("site_users").values({ username, password_hash: passwordHash, role }).returning(userColumns).executeTakeFirstOrThrow();
       await trx.insertInto("auth_identities").values({ user_id: row.id, provider: "local", provider_subject: username }).execute();
       return toSiteUser(row);

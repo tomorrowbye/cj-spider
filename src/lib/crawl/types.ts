@@ -32,12 +32,22 @@ export interface CrawlTaskConfig {
   startPage: number;
   endPage: number;
   skipExisting: boolean;
-  cookie: string;
+  cookie?: string;
+  idempotencyKey?: string;
 }
 
 export interface CrawlProgress {
   sessionId: string;
-  status: "running" | "paused" | "completed" | "failed";
+  status: "running" | "paused" | "completed" | "failed" | "cancelled";
+  pauseReason: string | null;
+  startPage: number;
+  endPage: number;
+  nextPage: number;
+  skipExisting: boolean;
+  recentTitles: RecentTitle[];
+  finishedAt: Date | null;
+  already_running?: boolean;
+  idempotent_replay?: boolean;
   phase: "list" | "detail" | "completed"; // 当前阶段
   currentPage: number;
   totalPages: number;
@@ -53,3 +63,7 @@ export interface CrawlProgress {
 }
 
 export type CrawlStatus = "pending" | "crawled" | "failed";
+
+export interface RecentTitle {
+  time: string; page: number; title: string; status: string;
+}

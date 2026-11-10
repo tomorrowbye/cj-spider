@@ -11,6 +11,7 @@ export interface LoginParams {
 
 export interface CaptchaResult {
   imageBuffer: Buffer;
+  mimeType: string;
   cookies: string[];
 }
 
@@ -39,6 +40,7 @@ export async function getCaptcha(): Promise<CaptchaResult> {
 
   return {
     imageBuffer,
+    mimeType: response.headers.get('content-type')?.split(';')[0].trim() || 'application/octet-stream',
     cookies,
   };
 }

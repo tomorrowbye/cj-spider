@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ApiKeyManager } from "@/components/api-key-manager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -120,6 +121,8 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <ApiKeyManager key={user.id} />
 
       {/* 修改密码卡片 */}
       <Card>
