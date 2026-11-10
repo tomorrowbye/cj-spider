@@ -1,3 +1,5 @@
+import { exportNewsSchema, exportCrawlHistorySchema, listExportHistorySchema } from './schemas';
+
 /** One limiter per API key; denied calls do not consume narrower buckets. */
 export function createRateLimiter(clock = Date.now) {
   const buckets = new Map<string, { tokens: number; at: number }>();
@@ -6,6 +8,7 @@ export function createRateLimiter(clock = Date.now) {
     const limits: [string, number][] = [['all', 60]];
     if (tool === 'get_captcha' || tool === 'submit_captcha') limits.push(['captcha', 10]);
     if (tool === 'start_crawl') limits.push(['start', 3]);
+    if (tool === 'export_news' || tool === 'export_crawl_history') limits.push(['export', 5]);
     const current = limits.map(([key, capacity]) => {
       const previous = buckets.get(key) ?? { tokens: capacity, at: now };
       return { key, tokens: Math.min(capacity, previous.tokens + Math.max(0, now - previous.at) * capacity / 60_000), at: now };
@@ -36,6 +39,12 @@ const allowed: Record<string, string[]> = {
   list_recent_news: ['limit', 'start_date', 'end_date'],
 };
 export function redactArgs(tool: string, args: Record<string, unknown>): Record<string, unknown> {
+  const exportSchema = tool === 'export_news' ? exportNewsSchema : tool === 'export_crawl_history' ? exportCrawlHistorySchema : tool === 'list_export_history' ? listExportHistorySchema : null;
+  if (exportSchema) {
+    const parsed = exportSchema.safeParse(args);
+    // Invalid requests must never copy unvalidated input into durable audit records.
+    return parsed.success ? parsed.data : {};
+  }
   if (tool === 'create_user') return {
     ...(typeof args.username === 'string' && args.username.length <= 50 ? { username: args.username } : {}),
     role: args.role === 'admin' ? 'admin' : 'user',

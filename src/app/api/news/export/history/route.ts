@@ -1,6 +1,6 @@
 import { requireSiteAuth } from "@/lib/auth-gate";
 import { NextRequest, NextResponse } from 'next/server';
-import { getExportHistory, deleteExportHistory } from '@/lib/article-repository';
+import { listExportHistory, deleteExportHistory } from '@/lib/export-service';
 
 // 获取导出历史记录
 export async function GET(request: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
 
-    const { data, total: count } = await getExportHistory(page, pageSize);
+    const { data, total: count } = await listExportHistory(page, pageSize);
 
     return NextResponse.json({
       success: true,

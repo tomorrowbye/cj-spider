@@ -15,7 +15,9 @@ import { getCurrentCjSession, invalidateCjSession, saveCjSession } from '../cj-s
 import { consumeMcpCaptchaSession, createMcpCaptchaSession } from '../session-store';
 import { createFailedAuthLimiter, createRateLimiter, redactArgs } from './security';
 import { latestTaskId, recentNews, writeAudit } from './repository';
-import { createUserSchema, emptySchema, newsSchema, startSchema, submitSchema, taskSchema } from './schemas';
+import { createUserSchema, emptySchema, newsSchema, startSchema, submitSchema, taskSchema, exportNewsSchema, exportCrawlHistorySchema, listExportHistorySchema } from './schemas';
+import { createExportLink } from '../export-links';
+import { DEFAULT_NEWS_COLUMNS, DEFAULT_CRAWL_HISTORY_COLUMNS, ExportError, listExportHistory } from '../export-service';
 import { version } from '../../../package.json';
 
 const definitions = {
@@ -28,6 +30,9 @@ const definitions = {
   resume_crawl: { description: '验证原站登录并继续指定或当前任务；失效时提示获取验证码。', schema: taskSchema },
   cancel_crawl: { description: '取消指定或当前任务，保留已入库文章。', schema: taskSchema },
   list_recent_news: { description: '按北京时间日期和关键词查询最近文章，仅返回摘要字段和原文链接，不含正文。', schema: newsSchema },
+  export_news: { description: '按关键词、作者、地区、来源和北京时间日期筛选新闻，生成 Excel 下载链接；可选择列，include_content 为 true 时追加正文列。链接有效 30 分钟，最多下载 3 次；请将链接交给用户或自行下载。', schema: exportNewsSchema },
+  export_crawl_history: { description: '按状态筛选爬取历史并选择导出列，生成 Excel 下载链接。链接有效 30 分钟，最多下载 3 次；请将链接交给用户或自行下载。', schema: exportCrawlHistorySchema },
+  list_export_history: { description: '查询全站最近新闻导出历史，与网页端共享可见范围；默认 10 条，最多 50 条，不提供删除操作。', schema: listExportHistorySchema },
 };
 type ToolName = keyof typeof definitions;
 export interface McpDependencies {
@@ -36,6 +41,7 @@ export interface McpDependencies {
   upstream?: Pick<typeof cjAuth, 'getCaptcha' | 'login' | 'checkLoginStatus'>;
   env?: Partial<Record<'CJ_USERNAME' | 'CJ_PASSWORD', string>>;
   clock?: () => number;
+  publicBaseUrl?: string;
   log?: (line: string) => void;
 }
 export function beijingTime(value: Date | string | null): string | null {
@@ -154,6 +160,33 @@ export function createMcpHandler(deps: McpDependencies = {}) {
           return result({ logged_in: true, ...(resumed ? { resumed_task_id: resumed } : {}) });
         } catch { return failed(); }
       }
+      if (name === 'export_news') {
+        const args = exportNewsSchema.parse(raw);
+        const columns = [...(args.columns ?? DEFAULT_NEWS_COLUMNS)];
+        if (args.include_content && !columns.includes('content_text')) columns.push('content_text');
+        return result({ ...await createExportLink({ kind: 'news', params: {
+          keyword: args.keyword, author: args.author, region: args.region, sourceName: args.source_name,
+          startDate: args.start_date, endDate: args.end_date,
+        }, columns, userId: user.id, apiKeyId: apiKey.id }, {
+          db, now: () => new Date((deps.clock ?? Date.now)()), publicBaseUrl: deps.publicBaseUrl,
+        }) });
+      }
+      if (name === 'export_crawl_history') {
+        const args = exportCrawlHistorySchema.parse(raw);
+        return result({ ...await createExportLink({ kind: 'crawl_history', params: { status: args.status },
+          columns: args.columns ?? DEFAULT_CRAWL_HISTORY_COLUMNS, userId: user.id, apiKeyId: apiKey.id,
+        }, { db, now: () => new Date((deps.clock ?? Date.now)()), publicBaseUrl: deps.publicBaseUrl }) });
+      }
+      if (name === 'list_export_history') {
+        const args = listExportHistorySchema.parse(raw);
+        const history = await listExportHistory(1, args.limit, db);
+        return result({ total: history.total, data: history.data.map(row => ({
+          id: row.id, file_name: row.file_name, keyword: row.keyword, author: row.author,
+          region: row.region, source_name: row.source_name, start_date: beijingTime(row.start_date),
+          end_date: beijingTime(row.end_date), total_count: row.total_count, columns: row.columns,
+          created_at: beijingTime(row.created_at),
+        })) });
+      }
       if (name === 'list_recent_news') {
         const args = newsSchema.parse(raw);
         const news = await recentNews({ pageSize: args.limit, startDate: args.start_date, endDate: args.end_date, keyword: args.keyword }, db);
@@ -190,7 +223,9 @@ export function createMcpHandler(deps: McpDependencies = {}) {
         else if (!known) response = result({ error: '未知工具' }, true);
         else if (!definitions[params.name as ToolName].schema.safeParse(raw).success) response = result({ error: '参数无效，请检查工具输入格式和范围' }, true);
         else response = await execute(params.name as ToolName, raw);
-      } catch { response = result({ error: '工具执行失败，请稍后重试；登录失败时请重新获取验证码' }, true); }
+      } catch (error) {
+        response = result({ error: error instanceof ExportError ? error.message : '工具执行失败，请稍后重试；登录失败时请重新获取验证码' }, true);
+      }
       const output = response.structuredContent ?? {};
       const ok = !response.isError && output.logged_in !== false;
       const task = output.task_id ?? output.resumed_task_id ?? raw.task_id;
