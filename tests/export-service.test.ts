@@ -19,6 +19,23 @@ function sheet(buffer: Buffer) {
 }
 const overflow = '导出数据超过 20000 条，请缩小日期范围或增加筛选条件';
 
+for (const kind of ['news', 'crawl_history'] as const) {
+  test(`${kind} workbook filename uses the Shanghai calendar date after UTC 16:00`, async t => {
+    const db = await fixture();
+    try {
+      await db.insertInto('news').values({ source_id: 'date', title: 'Date boundary' }).execute();
+      await db.insertInto('crawl_sessions').values({ total_pages: 1 }).execute();
+      t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-10T16:30:00Z') });
+      const build = kind === 'news' ? buildNewsWorkbook : buildCrawlHistoryWorkbook;
+      const result = await build({}, undefined, db);
+      assert.equal(result.filename, `${kind === 'news' ? 'news_export' : 'crawl_history'}_2026-11-11.xlsx`);
+    } finally {
+      t.mock.timers.reset();
+      await db.destroy();
+    }
+  });
+}
+
 test('news workbook preserves defaults, ordered columns, widths, content and Shanghai times without recording history', async () => {
   const db = await fixture();
   try {

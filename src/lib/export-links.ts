@@ -1,4 +1,5 @@
 import 'server-only';
+import { shanghaiDate } from './shanghai-date';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
@@ -68,7 +69,7 @@ export async function createExportLink(input: CreateExportLinkInput, options: Ex
   const expires = new Date(now.getTime() + 30 * 60000);
   const raw = randomBytes(32).toString('base64url');
   const hash = createHash('sha256').update(raw).digest('hex');
-  const filename = `${input.kind === 'news' ? 'news_export' : 'crawl_history'}_${now.toISOString().slice(0, 10)}.xlsx`;
+  const filename = `${input.kind === 'news' ? 'news_export' : 'crawl_history'}_${shanghaiDate(now)}.xlsx`;
   const rowCount = await db.transaction().execute(async trx => {
     const user = await trx.selectFrom('site_users').select('id').where('id', '=', input.userId).where('is_active', '=', true).executeTakeFirst();
     if (!user) throw new Error('Account unavailable');
@@ -106,6 +107,13 @@ export async function downloadExport(token: string, options: ExportLinkOptions =
       .where('id', '=', link.id).where('expires_at', '>', now.toISOString())
       .whereRef('download_count', '<', 'max_downloads')
       .where(eb => eb.exists(eb.selectFrom('site_users').select('id').whereRef('site_users.id', '=', 'export_links.user_id').where('is_active', '=', true)))
+      .where(eb => eb.or([
+        eb('api_key_id', 'is', null),
+        eb.exists(eb.selectFrom('api_keys').select('id')
+          .whereRef('api_keys.id', '=', 'export_links.api_key_id')
+          .where('revoked_at', 'is', null)
+          .where(key => key.or([key('expires_at', 'is', null), key('expires_at', '>', now.toISOString())]))),
+      ]))
       .returning('id').executeTakeFirst();
     if (!claimed) return notFound();
     const stored = z.object({ filters: z.unknown(), columns: z.array(z.string()) }).strict().parse(link.params);

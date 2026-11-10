@@ -1,4 +1,5 @@
 import 'server-only';
+import { shanghaiDate } from './shanghai-date';
 import * as XLSX from 'xlsx';
 import type { Kysely, Selectable } from 'kysely';
 import { getDb, serializeRow, type Database, type CrawlSessionTable } from './db';
@@ -58,7 +59,7 @@ function workbook(rows: Record<string, unknown>[], widths: number[], sheet: stri
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = widths.map(wch => ({ wch }));
   XLSX.utils.book_append_sheet(wb, ws, sheet);
-  return { buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), filename: `${prefix}_${new Date().toISOString().slice(0, 10)}.xlsx`, rowCount: rows.length };
+  return { buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), filename: `${prefix}_${shanghaiDate(new Date())}.xlsx`, rowCount: rows.length };
 }
 
 /** Pure generation: history belongs to the initiating Web export or MCP link creation. */

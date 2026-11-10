@@ -26,6 +26,47 @@ function privacy(response: Response) {
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
 }
 
+for (const kind of ['news', 'crawl_history'] as const) {
+  test(`${kind} link filename uses the Shanghai calendar date after UTC 16:00`, async () => {
+    const { db, userId, options } = await fixture();
+    try {
+      const { createExportLink } = await service();
+      await db.insertInto('news').values({ source_id: 'date', title: 'Date boundary' }).execute();
+      await db.insertInto('crawl_sessions').values({ total_pages: 1 }).execute();
+      const result = await createExportLink({ kind, params: {}, userId }, { ...options, now: () => new Date('2026-11-10T16:30:00Z') });
+      const expected = `${kind === 'news' ? 'news_export' : 'crawl_history'}_2026-11-11.xlsx`;
+      assert.equal(result.file_name, expected);
+      assert.equal((await db.selectFrom('export_links').select('file_name').executeTakeFirstOrThrow()).file_name, expected);
+      if (kind === 'news') assert.equal((await db.selectFrom('export_history').select('file_name').executeTakeFirstOrThrow()).file_name, expected);
+    } finally { await db.destroy(); }
+  });
+}
+
+for (const state of ['revoked', 'expired', 'expires_now', 'valid', 'no_expiry', 'null'] as const) {
+  test(`atomic claim checks optional API key validity: ${state}`, async () => {
+    const { db, userId, options } = await fixture();
+    try {
+      const { createExportLink, downloadExport } = await service();
+      await db.insertInto('news').values({ source_id: 'key', title: 'Key validity' }).execute();
+      const key = state === 'null' ? null : await db.insertInto('api_keys').values({
+        user_id: userId, name: state, key_prefix: state, key_hash: state,
+      }).returning('id').executeTakeFirstOrThrow();
+      const result = await createExportLink({ kind: 'news', params: {}, userId, apiKeyId: key ? Number(key.id) : null }, options);
+      // Change key state after creation: download must recheck current validity.
+      if (key) await db.updateTable('api_keys').set({
+        revoked_at: state === 'revoked' ? instant.toISOString() : null,
+        expires_at: state === 'expired' ? '2026-01-01T23:59:59Z' : state === 'expires_now' ? instant.toISOString() : state === 'valid' ? '2026-01-02T00:01:00Z' : null,
+      }).where('id', '=', Number(key.id)).execute();
+      const allowed = ['valid', 'no_expiry', 'null'].includes(state);
+      const response = await downloadExport(token(result.download_url), options);
+      privacy(response);
+      assert.equal(response.status, allowed ? 200 : 404);
+      if (!allowed) assert.equal(await response.text(), 'Not Found');
+      assert.equal((await db.selectFrom('export_links').select('download_count').executeTakeFirstOrThrow()).download_count, allowed ? 1 : 0);
+    } finally { await db.destroy(); }
+  });
+}
+
 test('migration is idempotent and creates constrained export links with cascading ownership', async () => {
   const { db, userId } = await fixture();
   try {
