@@ -80,6 +80,30 @@ test('real SDK: full captcha flow, persisted reservation, schema enforcement, la
   } finally { await client.close(); await controller.waitForIdle(); await db.destroy(); }
 });
 
+for (const state of ['completed', 'failed', 'cancelled'] as const) {
+  test(`real SDK start_crawl reports ${state} idempotent replay without already_running`, async () => {
+    const { db, auth } = await fixture();
+    const controller = createCrawlController({ db });
+    const handler = createMcpHandler({ db, controller, env, log: () => {} });
+    const { client, transport } = clientFor(handler, auth);
+    try {
+      await client.connect(transport);
+      const args = { pages: 1, idempotency_key: 'ended-key' };
+      const started = output(await client.callTool({ name: 'start_crawl', arguments: args }));
+      const active = output(await client.callTool({ name: 'start_crawl', arguments: args }));
+      assert.equal(active.task_id, started.task_id);
+      assert.equal(active.already_running, true);
+      await db.updateTable('crawl_sessions').set({ status: state, finished_at: new Date() }).where('id', '=', Number(started.task_id)).execute();
+      const replay = output(await client.callTool({ name: 'start_crawl', arguments: args }));
+      assert.equal(replay.task_id, started.task_id);
+      assert.equal(replay.status, state);
+      assert.equal(replay.already_running, undefined);
+      assert.equal(replay.idempotent_replay, true);
+      assert.equal((await db.selectFrom('crawl_sessions').select('id').execute()).length, 1);
+    } finally { await client.close(); await controller.waitForIdle(); await db.destroy(); }
+  });
+}
+
 test('real SDK rejects missing bearer and looks up active user on every request without cookies', async () => {
   const { db, auth } = await fixture();
   const handler = createMcpHandler({ db, env, log: () => {} });

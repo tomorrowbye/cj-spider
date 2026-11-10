@@ -39,6 +39,27 @@ test('migration reruns, singleton reservations, persisted login intent and ten m
   } finally { await db.destroy(); }
 });
 
+for (const state of ['completed', 'failed', 'cancelled'] as const) {
+  test(`idempotency replay of ${state} task is not already running and never fetches again`, async () => {
+    const db = await fixture(); let fetches = 0;
+    const controller = createCrawlController({ db, getListPage: async () => { fetches++; throw Error('must not fetch'); } });
+    try {
+      const task = await controller.start({ ...config, idempotencyKey: 'ended-key' });
+      const activeReplay = await controller.start({ ...config, idempotencyKey: 'ended-key' });
+      assert.equal(activeReplay.already_running, true);
+      await db.updateTable('crawl_sessions').set({ status: state, finished_at: new Date() }).where('id', '=', Number(task.sessionId)).execute();
+      const replay = await controller.start({ ...config, idempotencyKey: 'ended-key' });
+      assert.equal(replay.sessionId, task.sessionId);
+      assert.equal(replay.status, state);
+      assert.notEqual(replay.already_running, true);
+      assert.equal(replay.idempotent_replay, true);
+      await controller.waitForIdle();
+      assert.equal(fetches, 0);
+      assert.equal((await db.selectFrom('crawl_sessions').select('id').execute()).length, 1);
+    } finally { await controller.waitForIdle(); await db.destroy(); }
+  });
+}
+
 test('rejected login pauses at exact absolute cursor, invalidates only that login, resumes range', async () => {
   const db = await fixture();
   const entered = deferred(); const release = deferred();

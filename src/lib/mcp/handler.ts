@@ -119,7 +119,7 @@ export function createMcpHandler(deps: McpDependencies = {}) {
         const args = startSchema.parse(raw);
         await validCookie();
         const p = await controller.start({ startPage: args.start_page ?? 1, endPage: args.end_page ?? args.pages!, skipExisting: args.skip_existing, idempotencyKey: args.idempotency_key });
-        return result({ task_id: p.sessionId, status: p.status, start_page: p.startPage, end_page: p.endPage, needs_captcha: p.pauseReason === 'cj_login_required', ...(p.already_running ? { already_running: true } : {}) });
+        return result({ task_id: p.sessionId, status: p.status, start_page: p.startPage, end_page: p.endPage, needs_captcha: p.pauseReason === 'cj_login_required', ...(p.already_running ? { already_running: true } : {}), ...(p.idempotent_replay ? { idempotent_replay: true } : {}) });
       }
       if (name === 'get_crawl_status') {
         const args = taskSchema.parse(raw);
@@ -198,7 +198,11 @@ export function createMcpHandler(deps: McpDependencies = {}) {
       const duration = Date.now() - started;
       try {
         await writeAudit(db, { user_id: user.id, api_key_id: apiKey.id, tool, args_redacted: redactArgs(tool, raw), ok, error: ok ? null : tool === 'create_user' && user.role !== 'admin' ? 'forbidden: admin only' : 'Tool call failed', duration_ms: duration, task_id: taskId });
-      } catch { response = result({ error: '审计记录暂不可用，请稍后重试' }, true); }
+      } catch {
+        // Audit storage is best-effort: side effects may already have committed.
+        // Never log the raw DB error or tool output (which can contain secrets).
+        (deps.log ?? console.log)(JSON.stringify({ event: 'mcp_audit_write_failed', tool, user_id: user.id, api_key_id: apiKey.id, key_prefix: apiKey.key_prefix, ok, duration_ms: duration, task_id: taskId }));
+      }
       (deps.log ?? console.log)(JSON.stringify({ tool, user_id: user.id, api_key_id: apiKey.id, key_prefix: apiKey.key_prefix, ok: ok && !response.isError, duration_ms: duration, task_id: taskId }));
       return response;
     });

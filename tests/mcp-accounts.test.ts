@@ -98,3 +98,42 @@ test('SDK rate buckets are isolated per key and failed authentication is isolate
     assert.notEqual((await first.client.callTool({ name: 'list_recent_news', arguments: {} })).isError, true);
   } finally { await first.client.close(); await second.client.close(); await db.destroy(); }
 });
+
+
+test('audit persistence failure preserves committed tool results and generated passwords without leaking secrets', async () => {
+  const db = new Kysely<Database>({ dialect: new PGliteDialect({ pglite: new PGlite() }) });
+  await migrate(db);
+  const admin = await db.insertInto('site_users').values({ username: 'audit-admin', password_hash: 'unused', role: 'admin' }).returningAll().executeTakeFirstOrThrow();
+  const key = await createApiKey({ userId: admin.id, name: 'audit test' }, db);
+  const logs: string[] = [];
+  const handler = createMcpHandler({ db, env: {}, log: line => logs.push(line) });
+  const { client, transport } = connect(handler, key.key);
+  try {
+    await client.connect(transport);
+    // Fail only audit INSERTs; authentication and tool transactions remain available.
+    await sql`ALTER TABLE mcp_audit_log ADD CONSTRAINT reject_audit CHECK (false)`.execute(db);
+    const created = await client.callTool({ name: 'create_user', arguments: { username: 'audit-created' } });
+    assert.notEqual(created.isError, true);
+    const password = output(created).generated_password as string;
+    assert.ok(password.length >= 16);
+    const row = await db.selectFrom('site_users').selectAll().where('username', '=', 'audit-created').executeTakeFirstOrThrow();
+    assert.equal(await verifyPassword(password, row.password_hash), true);
+    const started = await client.callTool({ name: 'start_crawl', arguments: { pages: 1 } });
+    assert.notEqual(started.isError, true);
+    const taskId = output(started).task_id;
+    assert.equal(typeof taskId, 'string');
+    const cancelled = await client.callTool({ name: 'cancel_crawl', arguments: { task_id: taskId } });
+    assert.notEqual(cancelled.isError, true);
+    assert.equal(output(cancelled).state, 'cancelled');
+    const denied = await client.callTool({ name: 'create_user', arguments: { username: 'ab' } });
+    assert.equal(denied.isError, true);
+    assert.match(String(output(denied).error), /参数无效/);
+    const failures = logs.map(line => JSON.parse(line)).filter(line => line.event === 'mcp_audit_write_failed');
+    assert.equal(failures.length, 4);
+    assert.ok(failures.every(line => line.key_prefix === key.key_prefix && line.api_key_id === key.id && line.user_id === admin.id));
+    const serialized = logs.join('');
+    assert.equal(serialized.includes(password), false);
+    assert.equal(serialized.includes(key.key), false);
+    assert.equal(serialized.includes('reject_audit'), false);
+  } finally { await client.close(); await db.destroy(); }
+});

@@ -145,7 +145,7 @@ state 为 running/paused/completed/failed/cancelled，recent_titles 最多十条
 
 幂等迁移 `002-mcp` 纳入版本账本，添加任务绝对 start/end/next 页码、暂停原因、执行代次、幂等键、最近文章，以及 api_keys、mcp_audit_log。Key 无 scope 列。
 
-全局只允许一个 running 或 paused 任务，Web 和 MCP 共用数据库事务内的 `LOCK TABLE crawl_sessions IN SHARE ROW EXCLUSIVE MODE`，串行化活动任务检查与写入。已有活动任务时 MCP 返回该任务及 already_running:true，Web start 返回 409 和当前任务。同一 idempotency_key 在十分钟内复用 task_id，包括已结束任务。
+全局只允许一个 running 或 paused 任务，Web 和 MCP 共用数据库事务内的 `LOCK TABLE crawl_sessions IN SHARE ROW EXCLUSIVE MODE`，串行化活动任务检查与写入。已有活动任务时 MCP 返回该任务及 already_running:true，Web start 返回 409 和当前任务。同一 idempotency_key 在十分钟内复用 task_id，包括已结束任务；命中 completed、failed 或 cancelled 任务时返回 idempotent_replay:true，不返回 already_running:true，也不会重新启动任务。
 
 原站 Cookie 存 login_sessions，仅使用最新有效且未过期记录，不通过接口返回。登录合并 Cookie 后用 checkLoginStatus 复核。验证码复用内存 session-store，与 Web 隔离并绑定用户。Web 浏览器 cj_auth 流程兼容；启动/继续 Web 爬取时将所提供 Cookie 写入服务端会话，供共享执行。
 

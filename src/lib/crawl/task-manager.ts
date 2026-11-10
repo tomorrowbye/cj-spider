@@ -182,7 +182,11 @@ export function createCrawlController(deps: CrawlControllerDependencies) {
         return { row, existing: false };
       });
       if (!result.existing) enqueue(result.row);
-      return { ...progress(result.row), already_running: result.existing };
+      const active = result.row.status === 'running' || result.row.status === 'paused';
+      return {
+        ...progress(result.row), already_running: result.existing && active,
+        ...(result.existing && !active ? { idempotent_replay: true } : {}),
+      };
     },
     async resume(id: string, cookie?: string): Promise<boolean> {
       await ready();

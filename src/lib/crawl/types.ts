@@ -47,6 +47,7 @@ export interface CrawlProgress {
   recentTitles: RecentTitle[];
   finishedAt: Date | null;
   already_running?: boolean;
+  idempotent_replay?: boolean;
   phase: "list" | "detail" | "completed"; // 当前阶段
   currentPage: number;
   totalPages: number;
