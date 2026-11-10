@@ -36,7 +36,14 @@ export interface ExportHistoryTable {
   source_name: string | null; start_date: Timestamp | null; end_date: Timestamp | null;
   total_count: number; columns: string[]; file_name: string; created_at: DefaultTimestamp;
 }
+export interface ExportLinkTable {
+  id: Generated<number>; user_id: number; api_key_id: number | null;
+  kind: 'news' | 'crawl_history'; params: Json; token_hash: string; token_prefix: string;
+  row_count: number; file_name: string; expires_at: Timestamp;
+  download_count: Generated<number>; max_downloads: Generated<number>; created_at: DefaultTimestamp;
+}
 export interface Database {
+  export_links: ExportLinkTable;
   api_keys: { id: Generated<number>; user_id: number; name: string; key_prefix: string; key_hash: string; created_at: DefaultTimestamp; last_used_at: Timestamp | null; expires_at: Timestamp | null; revoked_at: Timestamp | null };
   mcp_audit_log: { id: Generated<number>; created_at: DefaultTimestamp; user_id: number | null; api_key_id: number | null; tool: string; args_redacted: Json; ok: boolean; error: string | null; duration_ms: number; task_id: number | null };
   news: NewsTable;

@@ -87,8 +87,16 @@ export async function getNewsList(params: NewsSearchParams, db = getDb()): Promi
   const data=await query.select(columns).orderBy(sortColumn(params.orderBy),params.order==='asc'?'asc':'desc').limit(pageSize).offset((page-1)*pageSize).execute();
   return {data:serializeRow(data),total:Number(count),page,pageSize,totalPages:Math.ceil(Number(count)/pageSize)};
 }
-export async function getNewsForExport(params: Omit<NewsSearchParams,'page'|'pageSize'>, db = getDb()) {
-  return serializeRow(await filteredQuery(params,db).select([...columns,'content_text']).orderBy(sortColumn(params.orderBy),params.order==='asc'?'asc':'desc').execute());
+export async function countNewsForExport(params: Omit<NewsSearchParams,'page'|'pageSize'>, db = getDb()): Promise<number> {
+  const { count } = await filteredQuery(params, db).select(eb => eb.fn.countAll().as('count')).executeTakeFirstOrThrow();
+  return Number(count);
+}
+/** Optional SQL bound; existing callers retain the unbounded export behavior. */
+export async function getNewsForExport(params: Omit<NewsSearchParams,'page'|'pageSize'>, db = getDb(), limit?: number) {
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) throw new Error('Invalid export limit');
+  let query = filteredQuery(params,db).select([...columns,'content_text']).orderBy(sortColumn(params.orderBy),params.order==='asc'?'asc':'desc');
+  if (limit !== undefined) query = query.limit(limit);
+  return serializeRow(await query.execute());
 }
 export async function getFilterOptions(db = getDb()): Promise<{authors:string[];regions:string[];sourceNames:string[];categories:string[]}> {
   const distinct = async (column:'author'|'region'|'source_name'|'category') => (await db.selectFrom('news').select(column).distinct().where(column,'is not',null).where(column,'!=','').execute()).map(r=>r[column]!).sort();

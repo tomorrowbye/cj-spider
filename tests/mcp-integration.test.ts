@@ -42,7 +42,7 @@ test('real SDK: full captcha flow, persisted reservation, schema enforcement, la
   try {
     await client.connect(transport);
     const { tools } = await client.listTools();
-    assert.deepEqual(tools.map(t => t.name).sort(), ['create_user','start_crawl','get_crawl_status','get_captcha','submit_captcha','pause_crawl','resume_crawl','cancel_crawl','list_recent_news'].sort());
+    assert.deepEqual(tools.map(t => t.name).sort(), ['create_user','start_crawl','get_crawl_status','get_captcha','submit_captcha','pause_crawl','resume_crawl','cancel_crawl','list_recent_news','export_news','export_crawl_history','list_export_history'].sort());
     assert.ok(tools.every(t => /[\u4e00-\u9fff]/.test(t.description ?? '')));
     const bad = await client.callTool({ name: 'start_crawl', arguments: { pages: 2, start_page: 1, end_page: 2, password: 'do-not-log' } });
     assert.equal(bad.isError, true);
